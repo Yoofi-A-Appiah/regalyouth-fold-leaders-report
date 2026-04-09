@@ -75,7 +75,7 @@
 
   /* ─── LOGIN ─── */
   #screen-login {
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     min-height: calc(100vh - 78px);
@@ -504,11 +504,37 @@
   /* ─── SCREEN TRANSITIONS ─── */
   .screen {
     display: none;
+  }
+  .screen.active {
+    display: block;
     animation: fadeIn 0.22s ease;
   }
-  .screen.active { display: block; }
   #screen-login.active { display: flex; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ─── DATE ROW ─── */
+  .date-row {
+    display: grid;
+    grid-template-columns: 2fr 3fr 3fr;
+    gap: 6px;
+  }
+  .date-row select {
+    width: 100%;
+    padding: 11px 8px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    background: var(--cream);
+    color: var(--text);
+    transition: border-color 0.2s;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    text-align: center;
+    cursor: pointer;
+  }
+  .date-row select:focus { border-color: var(--gold); background: #fff; }
 
   /* ─── MOBILE FIRST ─── */
   /* Touch-friendly tap targets */
@@ -659,7 +685,7 @@
       <div class="row-2">
         <div class="field">
           <label>Date</label>
-          <input type="date" id="fu-date" />
+          <div class="date-row" id="fu-date-row"></div>
         </div>
         <div class="field">
           <label>Context</label>
@@ -704,7 +730,7 @@
       <div class="row-2">
         <div class="field">
           <label>Date of Visit</label>
-          <input type="date" id="vis-date" />
+          <div class="date-row" id="vis-date-row"></div>
         </div>
         <div class="field">
           <label>Reason</label>
@@ -1046,6 +1072,44 @@ document.getElementById('login-input').addEventListener('keydown', e => {
 })();
 
 // ═══════════════════════════════════════════════
+//  DATE SELECT HELPERS
+// ═══════════════════════════════════════════════
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function buildDateSelect(containerId, defaultDate) {
+  const container = document.getElementById(containerId);
+  const d = defaultDate || new Date();
+  const day = d.getDate(), month = d.getMonth(), year = d.getFullYear();
+
+  // Day
+  let dayOpts = '';
+  for (let i = 1; i <= 31; i++) dayOpts += `<option value="${i}" ${i === day ? 'selected' : ''}>${i}</option>`;
+
+  // Month
+  let monthOpts = '';
+  MONTHS.forEach((m, i) => { monthOpts += `<option value="${i}" ${i === month ? 'selected' : ''}>${m}</option>`; });
+
+  // Year — current year and one back
+  let yearOpts = '';
+  for (let y = year; y >= year - 1; y--) { yearOpts += `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`; }
+
+  container.innerHTML = `
+    <select id="${containerId}-day" aria-label="Day">${dayOpts}</select>
+    <select id="${containerId}-month" aria-label="Month">${monthOpts}</select>
+    <select id="${containerId}-year" aria-label="Year">${yearOpts}</select>
+  `;
+}
+
+function getDateValue(containerId) {
+  const day   = document.getElementById(`${containerId}-day`)?.value;
+  const month = document.getElementById(`${containerId}-month`)?.value;
+  const year  = document.getElementById(`${containerId}-year`)?.value;
+  if (!day || month === undefined || !year) return '';
+  // Return YYYY-MM-DD
+  return `${year}-${String(Number(month)+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════
 //  TABS & MEMBERS
 // ═══════════════════════════════════════════════
 function switchTab(tab) {
@@ -1109,15 +1173,15 @@ function openReport(memberIndex) {
   document.getElementById('form-visitation').style.display = currentTab === 'visitation' ? 'block' : 'none';
 
   // Reset + pre-fill date
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date();
   if (currentTab === 'followup') {
-    document.getElementById('fu-date').value = today;
+    buildDateSelect('fu-date-row', today);
     document.getElementById('fu-context').value = '';
     document.getElementById('fu-method').value = '';
     document.getElementById('fu-response').value = '';
     document.getElementById('fu-prayer').value = '';
   } else {
-    document.getElementById('vis-date').value = today;
+    buildDateSelect('vis-date-row', today);
     document.getElementById('vis-reason').value = '';
     document.getElementById('vis-obs').value = '';
     document.getElementById('vis-prayer').value = '';
@@ -1142,7 +1206,7 @@ async function submitReport(type) {
   };
 
   if (type === 'followup') {
-    const date = document.getElementById('fu-date').value;
+    const date = getDateValue('fu-date-row');
     const context = document.getElementById('fu-context').value;
     const method = document.getElementById('fu-method').value;
     if (!date || !context || !method) { showToast('Please fill all required fields', 'error'); return; }
@@ -1151,7 +1215,7 @@ async function submitReport(type) {
       prayerNeeds: document.getElementById('fu-prayer').value
     });
   } else {
-    const date = document.getElementById('vis-date').value;
+    const date = getDateValue('vis-date-row');
     const reason = document.getElementById('vis-reason').value;
     if (!date || !reason) { showToast('Please fill all required fields', 'error'); return; }
     const outcomes = [...document.querySelectorAll('#vis-outcomes input:checked')].map(c => c.value);
