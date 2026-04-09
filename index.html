@@ -71,9 +71,7 @@
     text-align: right;
   }
 
-  /* ─── SCREENS ─── */
-  .screen { display: none; }
-  .screen.active { display: block; }
+  /* ─── SCREENS handled in MOBILE FIRST section below ─── */
 
   /* ─── LOGIN ─── */
   #screen-login {
@@ -503,11 +501,93 @@
     font-size: 0.78rem;
   }
 
-  @media(max-width: 480px) {
+  /* ─── SCREEN TRANSITIONS ─── */
+  .screen {
+    display: none;
+    animation: fadeIn 0.22s ease;
+  }
+  .screen.active { display: block; }
+  #screen-login.active { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ─── MOBILE FIRST ─── */
+  /* Touch-friendly tap targets */
+  .member-card { min-height: 64px; -webkit-tap-highlight-color: transparent; }
+  .tab { min-height: 44px; }
+  .btn { min-height: 48px; }
+
+  /* Larger inputs on mobile */
+  .field input, .field select, .field textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+
+  /* Outcome checkboxes — bigger tap area on mobile */
+  #vis-outcomes label {
+    padding: 10px 14px;
+    background: var(--cream);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    flex: 1 1 calc(50% - 4px);
+    min-width: 130px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  #vis-outcomes label:has(input:checked) {
+    background: #DFF0E4;
+    border-color: var(--success);
+    color: var(--success);
+  }
+  #vis-outcomes input[type="checkbox"] { accent-color: var(--success); width: 16px; height: 16px; }
+
+  /* Dashboard bottom padding so last card isn't cut off */
+  #screen-dashboard { padding-bottom: 40px; }
+  #screen-report { padding-bottom: 48px; }
+
+  /* Dash greeting row with period badge */
+  .dash-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .dash-meta h2 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.25rem;
+  }
+  .period-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: var(--deep);
+    color: var(--gold-light);
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+  }
+  .dash-sub { color: var(--muted); font-size: 0.82rem; margin-bottom: 16px; }
+
+  /* Member count pill */
+  .member-count {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+
+  /* Active member card state */
+  .member-card:active { transform: scale(0.98); background: var(--cream); }
+
+  @media (max-width: 480px) {
     .row-2 { grid-template-columns: 1fr; }
     .login-card { padding: 28px 20px; }
     .table-head, .table-row { grid-template-columns: 2fr 1fr 1.5fr; }
     .table-head span:nth-child(3), .table-row > *:nth-child(3) { display: none; }
+    header h1 { font-size: 0.95rem; }
+    header p { display: none; }
+    .report-header { padding: 16px; }
+    .report-header h3 { font-size: 1rem; }
+    #screen-admin { padding: 16px; }
+    .form-card { padding: 16px; }
   }
 </style>
 </head>
@@ -519,7 +599,12 @@
     <h1>Regal Youth Ministry</h1>
     <p>Fold Follow-Up System</p>
   </div>
-  <div id="header-leader-name"></div>
+  <div id="header-right" style="margin-left:auto;display:flex;align-items:center;gap:10px;">
+    <span id="header-leader-name" style="color:var(--gold-light);font-size:0.82rem;font-weight:500;text-align:right;"></span>
+    <button id="logout-btn" onclick="doLogout()" style="display:none;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer;white-space:nowrap;transition:background 0.18s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+      Sign out
+    </button>
+  </div>
 </header>
 
 <!-- LOGIN -->
@@ -543,14 +628,16 @@
 
 <!-- DASHBOARD -->
 <div id="screen-dashboard" class="screen">
-  <div class="dash-greeting">
+  <div class="dash-meta">
     <h2 id="dash-name">Welcome</h2>
-    <p id="dash-period">Bimonthly report period · <span id="dash-date"></span></p>
+    <span class="period-badge" id="dash-period-badge"></span>
   </div>
+  <p class="dash-sub" id="dash-date"></p>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('followup')">📞 Follow-Up Log</button>
     <button class="tab" onclick="switchTab('visitation')">🏠 Visitation Log</button>
   </div>
+  <div class="member-count" id="member-count"></div>
   <div id="members-container" class="members-list"></div>
 </div>
 
@@ -832,6 +919,18 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
+function doLogout() {
+  currentLeader = null;
+  currentMember = null;
+  currentTab = 'followup';
+  document.getElementById('header-leader-name').textContent = '';
+  document.getElementById('logout-btn').style.display = 'none';
+  document.getElementById('login-input').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  history.pushState('', '', window.location.pathname);
+  showScreen('screen-login');
+}
+
 function goBack() {
   showScreen('screen-dashboard');
 }
@@ -907,8 +1006,12 @@ async function doLogin() {
 
     currentLeader = leader;
     document.getElementById('header-leader-name').textContent = leader.name;
+    document.getElementById('logout-btn').style.display = 'block';
     document.getElementById('dash-name').textContent = `Hi, ${leader.name.split(' ')[0]} 👋`;
-    document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+    document.getElementById('dash-date').textContent = `Bimonthly period · ${new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}`;
+    const now = new Date();
+    const half = now.getDate() <= 15 ? '1st half' : '2nd half';
+    document.getElementById('dash-period-badge').textContent = `${now.toLocaleDateString('en-GB',{month:'short',year:'numeric'})} · ${half}`;
 
     showLoading('Loading your members...');
     await loadSubmissions();
@@ -955,10 +1058,18 @@ function switchTab(tab) {
 
 function renderMembers() {
   const container = document.getElementById('members-container');
+  const countEl = document.getElementById('member-count');
   if (!currentLeader || !currentLeader.members.length) {
     container.innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>No members assigned yet.</p></div>`;
+    if (countEl) countEl.textContent = '';
     return;
   }
+
+  const done = currentLeader.members.filter(m =>
+    submissions.some(s => s.leaderId === currentLeader.id && s.memberName === m.name && s.type === currentTab)
+  ).length;
+  const total = currentLeader.members.length;
+  if (countEl) countEl.textContent = `${done} of ${total} reported this period`;
 
   container.innerHTML = currentLeader.members.map((m, i) => {
     const hasReport = submissions.some(s =>
