@@ -620,7 +620,9 @@
 <body>
 
 <header>
-  <div class="header-icon">🔥</div>
+  <div class="header-icon">
+    <a href="https://ibb.co/kZDw67V"><img src="https://i.ibb.co/NRNJnvg/regal-youth-logo.png" alt="regal-youth-logo" border="0" style="width:92px;height:92px;"></a>
+  </div>
   <div>
     <h1>Regal Youth Ministry</h1>
     <p>Fold Follow-Up System</p>
@@ -636,7 +638,9 @@
 <!-- LOGIN -->
 <div id="screen-login" class="screen active">
   <div class="login-card">
-    <div class="logo">🔥</div>
+    <div class="logo">
+    <a href="https://ibb.co/kZDw67V"><img src="https://i.ibb.co/NRNJnvg/regal-youth-logo.png" alt="regal-youth-logo" border="0" style="width:200px;height:200px;"></a>
+    </div>
     <h2>Fold Leader Portal</h2>
     <p>Enter your unique Fold Leader ID to access your members and submit reports.</p>
     <div class="field">
@@ -884,19 +888,28 @@ async function apiPost(payload) {
   });
 }
 
+// ─── Stable memberId — always recomputed from leaderId + name, never stored stale ───
+function makeMemberId(leaderId, memberName) {
+  return `${leaderId}::${memberName.toLowerCase().replace(/\s+/g, '-')}`;
+}
+
 // ─── Load full roster (Leaders + Members tabs) ───
 async function loadRoster(forceRefresh = false) {
   if (!forceRefresh) {
     const cached = cacheGet('rym_roster');
-    if (cached) { roster = cached; return; }
+    if (cached) {
+      // Always re-stamp memberIds in case cache predates this logic
+      cached.leaders.forEach(l => {
+        l.members.forEach(m => { m.memberId = makeMemberId(l.id, m.name); });
+      });
+      roster = cached;
+      return;
+    }
   }
   showLoading('Loading members...');
   const data = await apiGet('getRoster');
-  // Stamp every member with a stable memberId: leaderId::slug(name)
   data.leaders.forEach(l => {
-    l.members.forEach(m => {
-      m.memberId = `${l.id}::${m.name.toLowerCase().replace(/\s+/g, '-')}`;
-    });
+    l.members.forEach(m => { m.memberId = makeMemberId(l.id, m.name); });
   });
   roster = data;
   cacheSet('rym_roster', roster);
@@ -941,8 +954,9 @@ function isThisPeriod(dateStr) {
 }
 
 // Canonical check: has this member been reported this period for this type?
-// Checks both Sheets-loaded submissions AND the locally queued ones
 function hasReportThisPeriod(memberId, type) {
+  if (!memberId || memberId === 'undefined') return false; // guard against bad state
+
   const period = currentPeriodKey();
 
   // Check loaded submissions (from Sheets cache)
@@ -951,14 +965,15 @@ function hasReportThisPeriod(memberId, type) {
   );
   if (inSheets) return true;
 
-  // Also check the local optimistic cache written on submit
-  const localKey = `rym_reported_${period}`;
-  const local = JSON.parse(localStorage.getItem(localKey) || '{}');
+  // Check local optimistic cache written on submit
+  const local = JSON.parse(localStorage.getItem(`rym_reported_${period}`) || '{}');
   return !!local[`${memberId}::${type}`];
 }
 
 // Mark locally when a report is submitted (instant badge flip, survives logout)
 function markReportedLocally(memberId, type) {
+  if (!memberId || memberId === 'undefined') return; // guard — never write a bad key
+
   const period = currentPeriodKey();
   const localKey = `rym_reported_${period}`;
   const local = JSON.parse(localStorage.getItem(localKey) || '{}');
@@ -994,6 +1009,22 @@ function doLogout() {
   history.pushState('', '', window.location.pathname);
   showScreen('screen-login');
 }
+
+// Scrub any localStorage keys written with 'undefined' as the memberId
+// (from the previous buggy version) — run once on page load
+function scrubBadLocalKeys() {
+  const period = currentPeriodKey();
+  const localKey = `rym_reported_${period}`;
+  try {
+    const local = JSON.parse(localStorage.getItem(localKey) || '{}');
+    let dirty = false;
+    for (const key of Object.keys(local)) {
+      if (key.startsWith('undefined::')) { delete local[key]; dirty = true; }
+    }
+    if (dirty) localStorage.setItem(localKey, JSON.stringify(local));
+  } catch(e) { localStorage.removeItem(localKey); }
+}
+scrubBadLocalKeys();
 
 function goBack() {
   showScreen('screen-dashboard');
