@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regal Youth Ministry — Fold Reports</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C97A;
+    --deep: #1A1208;
+    --warm: #2C1F0A;
+    --cream: #F5EDD8;
+    --cream-dark: #EDE0C4;
+    --text: #2C1F0A;
+    --muted: #7A6A4A;
+    --border: #D4C49A;
+    --success: #3D7A4A;
+    --error: #8B2E2E;
+    --card: #FFFBF2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    background: var(--deep);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  .header-icon {
+    width: 38px; height: 38px;
+    background: var(--gold);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  header h1 {
+    font-family: 'Libre Baskerville', serif;
+    color: var(--cream);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  header p {
+    color: var(--gold-light);
+    font-size: 0.72rem;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  #header-leader-name {
+    margin-left: auto;
+    color: var(--gold-light);
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-align: right;
+  }
+
+  /* ─── SCREENS ─── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ─── LOGIN ─── */
+  #screen-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 78px);
+    padding: 32px 16px;
+  }
+  #screen-login.active { display: flex; }
+
+  .login-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 8px 32px rgba(26,18,8,0.12);
+    text-align: center;
+  }
+  .login-card .logo {
+    width: 64px; height: 64px;
+    background: var(--deep);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 20px;
+  }
+  .login-card h2 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+  }
+  .login-card p {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  .verse {
+    font-family: 'Libre Baskerville', serif;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 24px;
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+  }
+
+  /* ─── FORM ELEMENTS ─── */
+  .field { margin-bottom: 16px; text-align: left; }
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    background: var(--cream);
+    color: var(--text);
+    transition: border-color 0.2s;
+    outline: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--gold);
+    background: #fff;
+  }
+  .field textarea { resize: vertical; min-height: 80px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 22px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.18s;
+  }
+  .btn-primary {
+    background: var(--deep);
+    color: var(--gold-light);
+    width: 100%;
+  }
+  .btn-primary:hover { background: var(--warm); transform: translateY(-1px); }
+  .btn-gold {
+    background: var(--gold);
+    color: var(--deep);
+  }
+  .btn-gold:hover { background: var(--gold-light); transform: translateY(-1px); }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1.5px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-sm { padding: 7px 14px; font-size: 0.8rem; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ─── DASHBOARD ─── */
+  #screen-dashboard { padding: 24px 16px; max-width: 640px; margin: 0 auto; }
+
+  .dash-greeting {
+    margin-bottom: 24px;
+  }
+  .dash-greeting h2 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+  }
+  .dash-greeting p { color: var(--muted); font-size: 0.85rem; }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    background: var(--cream-dark);
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .tab {
+    flex: 1;
+    padding: 9px;
+    border-radius: 7px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.18s;
+  }
+  .tab.active {
+    background: var(--deep);
+    color: var(--gold-light);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  .members-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .member-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .member-card:hover {
+    border-color: var(--gold);
+    box-shadow: 0 4px 14px rgba(201,168,76,0.15);
+    transform: translateY(-1px);
+  }
+  .member-avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: var(--deep);
+    color: var(--gold-light);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .member-info { flex: 1; min-width: 0; }
+  .member-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+  }
+  .member-phone { color: var(--muted); font-size: 0.78rem; }
+  .member-badge {
+    font-size: 0.7rem;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .badge-none { background: var(--cream-dark); color: var(--muted); }
+  .badge-done { background: #DFF0E4; color: var(--success); }
+
+  /* ─── REPORT FORM ─── */
+  #screen-report { padding: 16px; max-width: 640px; margin: 0 auto; }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 0.83rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 20px;
+    padding: 6px 0;
+    background: none;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .back-btn:hover { color: var(--gold); }
+
+  .report-header {
+    background: var(--deep);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .report-header .avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--deep);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .report-header h3 {
+    font-family: 'Libre Baskerville', serif;
+    color: var(--cream);
+    font-size: 1.1rem;
+  }
+  .report-header p { color: var(--gold-light); font-size: 0.8rem; }
+
+  .form-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    margin-bottom: 14px;
+  }
+  .form-card h4 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 0.95rem;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .submit-area { padding: 8px 0 32px; }
+  .submit-area .btn { width: 100%; padding: 14px; font-size: 0.95rem; }
+
+  /* ─── ADMIN ─── */
+  #screen-admin { padding: 24px 16px; max-width: 760px; margin: 0 auto; }
+  #screen-admin h2 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.3rem;
+    margin-bottom: 6px;
+  }
+  #screen-admin > p { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  @media(max-width: 500px) { .admin-grid { grid-template-columns: 1fr; } }
+
+  .stat-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .stat-card .stat-label {
+    font-size: 0.73rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .stat-card .stat-value {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--deep);
+  }
+
+  .leaders-table {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .table-head {
+    background: var(--deep);
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1.5fr;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  .table-head span {
+    color: var(--gold-light);
+    font-size: 0.73rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .table-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1.5fr;
+    padding: 13px 16px;
+    gap: 8px;
+    border-bottom: 1px solid var(--cream-dark);
+    align-items: center;
+    font-size: 0.87rem;
+  }
+  .table-row:last-child { border-bottom: none; }
+  .table-row:hover { background: var(--cream); }
+
+  .copy-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: var(--gold);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    padding: 0;
+  }
+  .copy-link:hover { color: var(--deep); }
+
+  /* ─── SUBMISSIONS ─── */
+  .submissions-list { display: flex; flex-direction: column; gap: 10px; }
+  .submission-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 0.85rem;
+  }
+  .submission-card .sub-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .submission-card .sub-name { font-weight: 600; font-size: 0.9rem; }
+  .submission-card .sub-date { color: var(--muted); font-size: 0.75rem; }
+  .submission-card .sub-body { color: var(--muted); line-height: 1.6; }
+  .sub-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-right: 4px;
+    margin-bottom: 4px;
+  }
+  .tag-followup { background: #E8F0FF; color: #2E4A8B; }
+  .tag-visitation { background: #FFF0D4; color: #7A4A0A; }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--deep);
+    color: var(--cream);
+    padding: 12px 22px;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 999;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-left: 3px solid var(--gold); }
+  .toast.error-toast { border-left: 3px solid var(--error); }
+
+  /* ─── EMPTY ─── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .empty-state p { font-size: 0.88rem; line-height: 1.6; }
+
+  /* ─── SETUP BANNER ─── */
+  .setup-banner {
+    background: #FFF8E7;
+    border: 1.5px solid var(--gold);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 0.83rem;
+    margin-bottom: 20px;
+    line-height: 1.6;
+    color: var(--warm);
+  }
+  .setup-banner strong { display: block; margin-bottom: 4px; font-size: 0.85rem; }
+  .setup-banner code {
+    background: var(--cream-dark);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+  }
+
+  @media(max-width: 480px) {
+    .row-2 { grid-template-columns: 1fr; }
+    .login-card { padding: 28px 20px; }
+    .table-head, .table-row { grid-template-columns: 2fr 1fr 1.5fr; }
+    .table-head span:nth-child(3), .table-row > *:nth-child(3) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">🔥</div>
+  <div>
+    <h1>Regal Youth Ministry</h1>
+    <p>Fold Follow-Up System</p>
+  </div>
+  <div id="header-leader-name"></div>
+</header>
+
+<!-- LOGIN -->
+<div id="screen-login" class="screen active">
+  <div class="login-card">
+    <div class="logo">🔥</div>
+    <h2>Fold Leader Portal</h2>
+    <p>Enter your unique Fold Leader ID to access your members and submit reports.</p>
+    <div class="field">
+      <label>Fold Leader ID</label>
+      <input type="text" id="login-input" placeholder="e.g. FL-001" autocomplete="off" />
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">Enter Portal →</button>
+    <div id="login-error" style="color:#8B2E2E;font-size:0.82rem;margin-top:12px;display:none;">
+      Invalid ID. Please check with your coordinator.
+    </div>
+    <div class="verse">"Be diligent to know the state of your flocks,<br>and look well to your herds." — Proverbs 27:23</div>
+
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="screen-dashboard" class="screen">
+  <div class="dash-greeting">
+    <h2 id="dash-name">Welcome</h2>
+    <p id="dash-period">Bimonthly report period · <span id="dash-date"></span></p>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('followup')">📞 Follow-Up Log</button>
+    <button class="tab" onclick="switchTab('visitation')">🏠 Visitation Log</button>
+  </div>
+  <div id="members-container" class="members-list"></div>
+</div>
+
+<!-- REPORT FORM -->
+<div id="screen-report" class="screen">
+  <button class="back-btn" onclick="goBack()">← Back to members</button>
+  <div class="report-header">
+    <div class="avatar" id="report-avatar"></div>
+    <div>
+      <h3 id="report-member-name">Member Name</h3>
+      <p id="report-member-phone">Phone</p>
+    </div>
+  </div>
+
+  <!-- FOLLOW-UP FORM -->
+  <div id="form-followup">
+    <div class="form-card">
+      <h4>📞 Follow-Up Details</h4>
+      <div class="row-2">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="fu-date" />
+        </div>
+        <div class="field">
+          <label>Context</label>
+          <select id="fu-context">
+            <option value="">Select...</option>
+            <option value="YM">YM – After Youth Meeting</option>
+            <option value="PR">PR – After Program/Retreat</option>
+            <option value="RC">RC – Routine Check-in</option>
+            <option value="PV">PV – Post-Visitation</option>
+            <option value="OT">OT – Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Method</label>
+        <select id="fu-method">
+          <option value="">Select...</option>
+          <option value="Call">📞 Call</option>
+          <option value="WhatsApp">💬 WhatsApp</option>
+          <option value="In-person">🤝 In-person</option>
+          <option value="Social media">📱 Social media</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Member Response</label>
+        <textarea id="fu-response" placeholder="How did the conversation go? What was their mood/engagement?"></textarea>
+      </div>
+      <div class="field">
+        <label>Prayer Needs</label>
+        <textarea id="fu-prayer" placeholder="Any specific needs to pray for?" style="min-height:60px;"></textarea>
+      </div>
+    </div>
+    <div class="submit-area">
+      <button class="btn btn-gold" onclick="submitReport('followup')" id="btn-submit-fu">Submit Follow-Up Report ✓</button>
+    </div>
+  </div>
+
+  <!-- VISITATION FORM -->
+  <div id="form-visitation" style="display:none;">
+    <div class="form-card">
+      <h4>🏠 Visitation Details</h4>
+      <div class="row-2">
+        <div class="field">
+          <label>Date of Visit</label>
+          <input type="date" id="vis-date" />
+        </div>
+        <div class="field">
+          <label>Reason</label>
+          <select id="vis-reason">
+            <option value="">Select...</option>
+            <option value="M3">M3 – Missed 3+ meetings</option>
+            <option value="NC">NC – New convert / First-timer</option>
+            <option value="CY">CY – Church not Youth</option>
+            <option value="SV">SV – Salvation / Holy Spirit</option>
+            <option value="OT">OT – Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Key Observations</label>
+        <textarea id="vis-obs" placeholder="What did you observe about their spiritual state, environment, attitude?"></textarea>
+      </div>
+      <div class="field">
+        <label>Prayer Needs / Actions</label>
+        <textarea id="vis-prayer" placeholder="Prayer points or follow-up actions needed..." style="min-height:60px;"></textarea>
+      </div>
+      <div class="field">
+        <label>Outcome (select all that apply)</label>
+        <div id="vis-outcomes" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" value="W"> Word shared</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" value="P"> Prayer offered</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" value="F"> Fellowship given</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" value="S"> Soul saved</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" value="R"> Refer to leadership</label>
+        </div>
+      </div>
+    </div>
+    <div class="submit-area">
+      <button class="btn btn-gold" onclick="submitReport('visitation')" id="btn-submit-vis">Submit Visitation Report ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="screen-admin" class="screen">
+  <button class="back-btn" onclick="history.pushState('', '', window.location.pathname); showScreen('screen-login')">← Back to Login</button>
+  <h2>Admin Dashboard</h2>
+  <p>Manage fold leaders, view submissions, and copy access links.</p>
+
+  <div class="setup-banner">
+    <strong>⚙️ To save data to Google Sheets:</strong>
+    Replace <code>SCRIPT_URL</code> in the JS with your Google Apps Script Web App URL.
+    See the README for setup instructions.
+  </div>
+
+  <div class="admin-grid" id="admin-stats"></div>
+
+  <div class="form-card" style="margin-bottom:16px;">
+    <h4>➕ Add Fold Leader</h4>
+    <div class="row-2">
+      <div class="field"><label>Leader Name</label><input type="text" id="new-leader-name" placeholder="Full name" /></div>
+      <div class="field"><label>Leader ID</label><input type="text" id="new-leader-id" placeholder="e.g. FL-004" /></div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="addLeader()" style="width:auto;padding:9px 20px;">Add Leader</button>
+  </div>
+
+  <div class="leaders-table">
+    <div class="table-head">
+      <span>Leader</span>
+      <span>Members</span>
+      <span>Reports</span>
+      <span>Access Link</span>
+    </div>
+    <div id="admin-leaders-list"></div>
+  </div>
+
+  <div class="form-card">
+    <h4>📋 Recent Submissions</h4>
+    <div id="admin-submissions"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONFIG — Paste your Google Apps Script Web App URL here
+// ═══════════════════════════════════════════════
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzwh-SGrHlQ1OAT8wz8rm1HHwDLfHIdwDegIG1v38TBRC9aSzAY7kl6pXxcb4kbJQpfZA/exec';
+
+const ADMIN_HASH = 'admin-regal2026'; // Step 1 — access via yoursite.com/#admin-regal2024
+const ADMIN_PASS = 'regaladmin2026';  // Step 2 — password prompt after hash matches
+
+// ═══════════════════════════════════════════════
+//  CACHE — roster cached for 10 min, submissions for current session
+// ═══════════════════════════════════════════════
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+function cacheSet(key, value) {
+  localStorage.setItem(key, JSON.stringify({ value, ts: Date.now() }));
+}
+function cacheGet(key, ttl = CACHE_TTL) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { value, ts } = JSON.parse(raw);
+    if (Date.now() - ts > ttl) return null;
+    return value;
+  } catch { return null; }
+}
+
+// Pending submissions queue — for offline resilience
+function queueSubmission(payload) {
+  const q = JSON.parse(localStorage.getItem('rym_queue') || '[]');
+  q.push(payload);
+  localStorage.setItem('rym_queue', JSON.stringify(q));
+}
+function dequeueAll() {
+  const q = JSON.parse(localStorage.getItem('rym_queue') || '[]');
+  localStorage.removeItem('rym_queue');
+  return q;
+}
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let roster = { leaders: [] };      // loaded from Sheets
+let submissions = [];              // loaded from Sheets for current period
+let currentLeader = null;
+let currentMember = null;
+let currentTab = 'followup';
+
+// ═══════════════════════════════════════════════
+//  API — all Sheet reads/writes go through here
+// ═══════════════════════════════════════════════
+async function apiGet(action, params = {}) {
+  if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+    throw new Error('SCRIPT_URL not configured');
+  }
+  const qs = new URLSearchParams({ action, ...params }).toString();
+  const res = await fetch(`${SCRIPT_URL}?${qs}`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+async function apiPost(payload) {
+  if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+    throw new Error('SCRIPT_URL not configured');
+  }
+  await fetch(SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+// ─── Load full roster (Leaders + Members tabs) ───
+async function loadRoster(forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = cacheGet('rym_roster');
+    if (cached) { roster = cached; return; }
+  }
+  showLoading('Loading members...');
+  const data = await apiGet('getRoster');
+  // data = { leaders: [{ id, name, members: [{name, phone}] }] }
+  roster = data;
+  cacheSet('rym_roster', roster);
+  hideLoading();
+}
+
+// ─── Load submissions for current period ───
+async function loadSubmissions(forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = cacheGet('rym_submissions', 5 * 60 * 1000); // 5 min TTL
+    if (cached) { submissions = cached; return; }
+  }
+  try {
+    const data = await apiGet('getSubmissions', { period: currentPeriodKey() });
+    submissions = data.submissions || [];
+    cacheSet('rym_submissions', submissions);
+  } catch(e) {
+    submissions = [];
+    console.warn('Could not load submissions', e);
+  }
+}
+
+function currentPeriodKey() {
+  const now = new Date();
+  const half = now.getDate() <= 15 ? 'A' : 'B';
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${half}`;
+}
+
+function isThisPeriod(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear() &&
+    (d.getDate() <= 15) === (now.getDate() <= 15);
+}
+
+// ─── Flush any queued submissions (sent while offline) ───
+async function flushQueue() {
+  const pending = dequeueAll();
+  if (!pending.length) return;
+  for (const p of pending) {
+    try { await apiPost(p); } catch(e) { queueSubmission(p); } // re-queue if still failing
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goBack() {
+  showScreen('screen-dashboard');
+}
+
+function checkAdminRoute() {
+  if (window.location.hash === '#' + ADMIN_HASH) {
+    const pass = prompt('Enter admin password:');
+    if (pass === null) { history.pushState('', '', window.location.pathname); return; }
+    if (pass === ADMIN_PASS) {
+      loadAndRenderAdmin();
+      showScreen('screen-admin');
+    } else {
+      history.pushState('', '', window.location.pathname);
+      showToast('Incorrect password', 'error');
+    }
+  }
+}
+
+window.addEventListener('hashchange', checkAdminRoute);
+
+// ═══════════════════════════════════════════════
+//  LOADING OVERLAY
+// ═══════════════════════════════════════════════
+function showLoading(msg = 'Loading...') {
+  let el = document.getElementById('loading-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loading-overlay';
+    el.style.cssText = `position:fixed;inset:0;background:rgba(245,237,216,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:12px;`;
+    el.innerHTML = `<div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;"></div><p style="font-size:0.88rem;color:var(--muted);font-family:'DM Sans',sans-serif;">${msg}</p>`;
+    if (!document.getElementById('spin-style')) {
+      const s = document.createElement('style');
+      s.id = 'spin-style';
+      s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(s);
+    }
+    document.body.appendChild(el);
+  } else {
+    el.querySelector('p').textContent = msg;
+    el.style.display = 'flex';
+  }
+}
+function hideLoading() {
+  const el = document.getElementById('loading-overlay');
+  if (el) el.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════
+async function doLogin() {
+  const id = document.getElementById('login-input').value.trim().toUpperCase();
+  document.getElementById('login-error').style.display = 'none';
+
+  // If not configured yet, show helpful message
+  if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+    document.getElementById('login-error').textContent = 'App not configured yet. See README for setup.';
+    document.getElementById('login-error').style.display = 'block';
+    return;
+  }
+
+  try {
+    showLoading('Signing in...');
+    await loadRoster();
+    hideLoading();
+
+    const leader = roster.leaders.find(l => l.id.toUpperCase() === id);
+    if (!leader) {
+      document.getElementById('login-error').textContent = 'Invalid ID. Please check with your coordinator.';
+      document.getElementById('login-error').style.display = 'block';
+      return;
+    }
+
+    currentLeader = leader;
+    document.getElementById('header-leader-name').textContent = leader.name;
+    document.getElementById('dash-name').textContent = `Hi, ${leader.name.split(' ')[0]} 👋`;
+    document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+
+    showLoading('Loading your members...');
+    await loadSubmissions();
+    hideLoading();
+
+    // Flush any offline submissions
+    flushQueue();
+
+    switchTab('followup');
+    showScreen('screen-dashboard');
+  } catch(e) {
+    hideLoading();
+    document.getElementById('login-error').textContent = 'Connection error. Please try again.';
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+
+// Allow Enter key on login input
+document.getElementById('login-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// Auto-login from URL param e.g. ?id=FL-001, or admin from hash
+(function autoLogin() {
+  checkAdminRoute();
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (id) {
+    document.getElementById('login-input').value = id;
+    doLogin();
+  }
+})();
+
+// ═══════════════════════════════════════════════
+//  TABS & MEMBERS
+// ═══════════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'followup') || (i === 1 && tab === 'visitation'));
+  });
+  renderMembers();
+}
+
+function renderMembers() {
+  const container = document.getElementById('members-container');
+  if (!currentLeader || !currentLeader.members.length) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>No members assigned yet.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = currentLeader.members.map((m, i) => {
+    const hasReport = submissions.some(s =>
+      s.leaderId === currentLeader.id &&
+      s.memberName === m.name &&
+      s.type === currentTab
+    );
+    const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+    return `
+      <div class="member-card" onclick="openReport(${i})">
+        <div class="member-avatar">${initials}</div>
+        <div class="member-info">
+          <div class="member-name">${m.name}</div>
+          <div class="member-phone">${m.phone}</div>
+        </div>
+        <span class="member-badge ${hasReport ? 'badge-done' : 'badge-none'}">
+          ${hasReport ? '✓ Done' : 'Pending'}
+        </span>
+      </div>
+    `;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  REPORT FORM
+// ═══════════════════════════════════════════════
+function openReport(memberIndex) {
+  currentMember = currentLeader.members[memberIndex];
+  const m = currentMember;
+  const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+
+  document.getElementById('report-avatar').textContent = initials;
+  document.getElementById('report-member-name').textContent = m.name;
+  document.getElementById('report-member-phone').textContent = m.phone;
+
+  document.getElementById('form-followup').style.display = currentTab === 'followup' ? 'block' : 'none';
+  document.getElementById('form-visitation').style.display = currentTab === 'visitation' ? 'block' : 'none';
+
+  // Reset + pre-fill date
+  const today = new Date().toISOString().split('T')[0];
+  if (currentTab === 'followup') {
+    document.getElementById('fu-date').value = today;
+    document.getElementById('fu-context').value = '';
+    document.getElementById('fu-method').value = '';
+    document.getElementById('fu-response').value = '';
+    document.getElementById('fu-prayer').value = '';
+  } else {
+    document.getElementById('vis-date').value = today;
+    document.getElementById('vis-reason').value = '';
+    document.getElementById('vis-obs').value = '';
+    document.getElementById('vis-prayer').value = '';
+    document.querySelectorAll('#vis-outcomes input').forEach(c => c.checked = false);
+  }
+
+  showScreen('screen-report');
+}
+
+async function submitReport(type) {
+  const btn = document.getElementById(`btn-submit-${type === 'followup' ? 'fu' : 'vis'}`);
+
+  let payload = {
+    action: 'addSubmission',
+    type,
+    leaderId: currentLeader.id,
+    leaderName: currentLeader.name,
+    memberName: currentMember.name,
+    memberPhone: currentMember.phone,
+    period: currentPeriodKey(),
+    submittedAt: new Date().toISOString(),
+  };
+
+  if (type === 'followup') {
+    const date = document.getElementById('fu-date').value;
+    const context = document.getElementById('fu-context').value;
+    const method = document.getElementById('fu-method').value;
+    if (!date || !context || !method) { showToast('Please fill all required fields', 'error'); return; }
+    Object.assign(payload, { date, context, method,
+      response: document.getElementById('fu-response').value,
+      prayerNeeds: document.getElementById('fu-prayer').value
+    });
+  } else {
+    const date = document.getElementById('vis-date').value;
+    const reason = document.getElementById('vis-reason').value;
+    if (!date || !reason) { showToast('Please fill all required fields', 'error'); return; }
+    const outcomes = [...document.querySelectorAll('#vis-outcomes input:checked')].map(c => c.value);
+    Object.assign(payload, { date, reason,
+      observations: document.getElementById('vis-obs').value,
+      prayerNeeds: document.getElementById('vis-prayer').value,
+      outcomes: outcomes.join(', ')
+    });
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  // Optimistically update local submissions so badge flips immediately
+  submissions.push(payload);
+  cacheSet('rym_submissions', submissions);
+
+  try {
+    await apiPost(payload);
+    showToast('Report submitted! 🙌', 'success');
+  } catch(e) {
+    // Queue for retry when back online
+    queueSubmission(payload);
+    showToast('Saved offline — will sync when connected', 'success');
+  }
+
+  btn.disabled = false;
+  btn.textContent = type === 'followup' ? 'Submit Follow-Up Report ✓' : 'Submit Visitation Report ✓';
+
+  setTimeout(() => { renderMembers(); goBack(); }, 1200);
+}
+
+// ═══════════════════════════════════════════════
+//  ADMIN
+// ═══════════════════════════════════════════════
+async function loadAndRenderAdmin() {
+  showLoading('Loading dashboard...');
+  try {
+    await loadRoster(true); // force fresh on admin open
+    const data = await apiGet('getAdminStats');
+    hideLoading();
+    renderAdmin(data);
+  } catch(e) {
+    hideLoading();
+    showToast('Failed to load admin data', 'error');
+  }
+}
+
+function renderAdmin(stats = {}) {
+  const totalMembers = roster.leaders.reduce((a, l) => a + l.members.length, 0);
+  const totalSubs = stats.totalSubmissions || 0;
+  const thisPeriod = stats.thisPeriodSubmissions || 0;
+
+  document.getElementById('admin-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Fold Leaders</div><div class="stat-value">${roster.leaders.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Total Members</div><div class="stat-value">${totalMembers}</div></div>
+    <div class="stat-card"><div class="stat-label">All-Time Reports</div><div class="stat-value">${totalSubs}</div></div>
+    <div class="stat-card"><div class="stat-label">This Period</div><div class="stat-value">${thisPeriod}</div></div>
+  `;
+
+  document.getElementById('admin-leaders-list').innerHTML = roster.leaders.map(l => {
+    const reports = stats.leaderCounts?.[l.id] || 0;
+    const link = `${window.location.origin}${window.location.pathname}?id=${l.id}`;
+    return `
+      <div class="table-row">
+        <div><strong>${l.name}</strong><br><span style="color:var(--muted);font-size:0.75rem;">${l.id}</span></div>
+        <div>${l.members.length}</div>
+        <div>${reports}</div>
+        <div><button class="copy-link" onclick="copyLink('${link}', this)">📋 Copy link</button></div>
+      </div>
+    `;
+  }).join('');
+
+  const subs = stats.recentSubmissions || [];
+  document.getElementById('admin-submissions').innerHTML = subs.length ? `
+    <div class="submissions-list">${subs.map(s => `
+      <div class="submission-card">
+        <div class="sub-header">
+          <span class="sub-name">${s.memberName}</span>
+          <span class="sub-date">${new Date(s.submittedAt).toLocaleDateString('en-GB')}</span>
+        </div>
+        <div>
+          <span class="sub-tag ${s.type === 'followup' ? 'tag-followup' : 'tag-visitation'}">
+            ${s.type === 'followup' ? '📞 Follow-Up' : '🏠 Visitation'}
+          </span>
+          <span class="sub-tag" style="background:var(--cream-dark);color:var(--muted);">${s.leaderName}</span>
+        </div>
+        <div class="sub-body" style="margin-top:6px;">${s.response || s.observations || '—'}</div>
+      </div>
+    `).join('')}</div>
+  ` : '<div class="empty-state"><p>No submissions yet.</p></div>';
+}
+
+async function addLeader() {
+  const name = document.getElementById('new-leader-name').value.trim();
+  const id = document.getElementById('new-leader-id').value.trim().toUpperCase();
+  if (!name || !id) { showToast('Enter name and ID', 'error'); return; }
+  if (roster.leaders.find(l => l.id === id)) { showToast('ID already exists', 'error'); return; }
+  try {
+    await apiPost({ action: 'addLeader', id, name });
+    showToast(`${name} added!`, 'success');
+    document.getElementById('new-leader-name').value = '';
+    document.getElementById('new-leader-id').value = '';
+    await loadAndRenderAdmin();
+  } catch(e) {
+    showToast('Failed to add leader', 'error');
+  }
+}
+
+function copyLink(link, btn) {
+  navigator.clipboard.writeText(link).then(() => {
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.innerHTML = '📋 Copy link', 2000);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type === 'error' ? 'error-toast' : 'success'}`;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
