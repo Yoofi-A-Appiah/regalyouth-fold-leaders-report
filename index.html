@@ -537,17 +537,14 @@
   .date-row select:focus { border-color: var(--gold); background: #fff; }
 
   /* ─── MOBILE FIRST ─── */
-  /* Touch-friendly tap targets */
   .member-card { min-height: 64px; -webkit-tap-highlight-color: transparent; }
   .tab { min-height: 44px; }
   .btn { min-height: 48px; }
 
-  /* Larger inputs on mobile */
   .field input, .field select, .field textarea {
-    font-size: 16px; /* prevents iOS zoom on focus */
+    font-size: 16px;
   }
 
-  /* Outcome checkboxes — bigger tap area on mobile */
   #vis-outcomes label {
     padding: 10px 14px;
     background: var(--cream);
@@ -564,11 +561,9 @@
   }
   #vis-outcomes input[type="checkbox"] { accent-color: var(--success); width: 16px; height: 16px; }
 
-  /* Dashboard bottom padding so last card isn't cut off */
   #screen-dashboard { padding-bottom: 40px; }
   #screen-report { padding-bottom: 48px; }
 
-  /* Dash greeting row with period badge */
   .dash-meta {
     display: flex;
     align-items: center;
@@ -592,7 +587,6 @@
   }
   .dash-sub { color: var(--muted); font-size: 0.82rem; margin-bottom: 16px; }
 
-  /* Member count pill */
   .member-count {
     font-size: 0.75rem;
     color: var(--muted);
@@ -600,7 +594,6 @@
     font-weight: 500;
   }
 
-  /* Active member card state */
   .member-card:active { transform: scale(0.98); background: var(--cream); }
 
   @media (max-width: 480px) {
@@ -652,7 +645,6 @@
       Invalid ID. Please check with your coordinator.
     </div>
     <div class="verse">"Be diligent to know the state of your flocks,<br>and look well to your herds." — Proverbs 27:23</div>
-
   </div>
 </div>
 
@@ -816,17 +808,17 @@
 
 <script>
 // ═══════════════════════════════════════════════
-//  CONFIG — Paste your Google Apps Script Web App URL here
+//  CONFIG
 // ═══════════════════════════════════════════════
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzwh-SGrHlQ1OAT8wz8rm1HHwDLfHIdwDegIG1v38TBRC9aSzAY7kl6pXxcb4kbJQpfZA/exec';
 
-const ADMIN_HASH = 'admin-regal2026'; // Step 1 — access via yoursite.com/#admin-regal2024
-const ADMIN_PASS = 'regaladmin2026';  // Step 2 — password prompt after hash matches
+const ADMIN_HASH = 'admin-regal2026';
+const ADMIN_PASS = 'regaladmin2026';
 
 // ═══════════════════════════════════════════════
-//  CACHE — roster cached for 10 min, submissions for current session
+//  CACHE
 // ═══════════════════════════════════════════════
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL = 10 * 60 * 1000;
 
 function cacheSet(key, value) {
   localStorage.setItem(key, JSON.stringify({ value, ts: Date.now() }));
@@ -841,7 +833,6 @@ function cacheGet(key, ttl = CACHE_TTL) {
   } catch { return null; }
 }
 
-// Pending submissions queue — for offline resilience
 function queueSubmission(payload) {
   const q = JSON.parse(localStorage.getItem('rym_queue') || '[]');
   q.push(payload);
@@ -856,19 +847,16 @@ function dequeueAll() {
 // ═══════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════
-let roster = { leaders: [] };      // loaded from Sheets
-let submissions = [];              // loaded from Sheets for current period
+let roster = { leaders: [] };
+let submissions = [];
 let currentLeader = null;
 let currentMember = null;
 let currentTab = 'followup';
 
 // ═══════════════════════════════════════════════
-//  API — all Sheet reads/writes go through here
+//  API
 // ═══════════════════════════════════════════════
 async function apiGet(action, params = {}) {
-  if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-    throw new Error('SCRIPT_URL not configured');
-  }
   const qs = new URLSearchParams({ action, ...params }).toString();
   const res = await fetch(`${SCRIPT_URL}?${qs}`);
   const json = await res.json();
@@ -877,9 +865,6 @@ async function apiGet(action, params = {}) {
 }
 
 async function apiPost(payload) {
-  if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-    throw new Error('SCRIPT_URL not configured');
-  }
   await fetch(SCRIPT_URL, {
     method: 'POST',
     mode: 'no-cors',
@@ -888,17 +873,16 @@ async function apiPost(payload) {
   });
 }
 
-// ─── Stable memberId — always recomputed from leaderId + name, never stored stale ───
+// ─── memberId: always recomputed, never trusted from cache ───
 function makeMemberId(leaderId, memberName) {
   return `${leaderId}::${memberName.toLowerCase().replace(/\s+/g, '-')}`;
 }
 
-// ─── Load full roster (Leaders + Members tabs) ───
+// ─── Load roster ───
 async function loadRoster(forceRefresh = false) {
   if (!forceRefresh) {
     const cached = cacheGet('rym_roster');
     if (cached) {
-      // Always re-stamp memberIds in case cache predates this logic
       cached.leaders.forEach(l => {
         l.members.forEach(m => { m.memberId = makeMemberId(l.id, m.name); });
       });
@@ -929,7 +913,6 @@ async function loadSubmissions(forceRefresh = false) {
     submissions = data.submissions || [];
     cacheSet(cacheKey, submissions);
   } catch(e) {
-    // Fall back to any locally cached version even if stale
     const stale = localStorage.getItem(cacheKey);
     submissions = stale ? JSON.parse(stale).value || [] : [];
     console.warn('Could not load submissions, using cache', e);
@@ -942,76 +925,37 @@ function currentPeriodKey() {
   return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${half}`;
 }
 
-// Pure date check — no reliance on in-memory state
-function isThisPeriod(dateStr) {
-  const d = new Date(dateStr);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth()    === now.getMonth() &&
-    (d.getDate() <= 15) === (now.getDate() <= 15)
-  );
-}
-
-// Canonical check: has this member been reported this period for this type?
-function hasReportThisPeriod(memberId, type) {
-  if (!memberId || memberId === 'undefined') return false; // guard against bad state
-
+// ─── CANONICAL REPORT CHECK ─────────────────────────────────────
+// Primary: match on leaderid + membername + type + period from Sheets
+// (Apps Script lowercases all header keys via h.toLowerCase())
+// Fallback: local optimistic cache for same-device instant feedback
+function hasReportThisPeriod(member, type) {
   const period = currentPeriodKey();
 
-  // Check loaded submissions (from Sheets cache)
   const inSheets = submissions.some(s =>
-    s.memberid === memberId && s.type === type && s.period === period
+    s.leaderid   === currentLeader.id &&
+    s.membername === member.name &&
+    s.type       === type &&
+    s.period     === period
   );
   if (inSheets) return true;
 
-  // Check local optimistic cache written on submit
+  // Same-device fallback — covers gap between submit and next Sheets refresh
+  if (!member.memberId) return false;
   const local = JSON.parse(localStorage.getItem(`rym_reported_${period}`) || '{}');
-  return !!local[`${memberId}::${type}`];
+  return !!local[`${member.memberId}::${type}`];
 }
 
-// Mark locally when a report is submitted (instant badge flip, survives logout)
-function markReportedLocally(memberId, type) {
-  if (!memberId || memberId === 'undefined') return; // guard — never write a bad key
-
+// ─── Mark locally on submit — survives logout/login on same device ───
+function markReportedLocally(member, type) {
+  if (!member.memberId) return;
   const period = currentPeriodKey();
-  const localKey = `rym_reported_${period}`;
-  const local = JSON.parse(localStorage.getItem(localKey) || '{}');
-  local[`${memberId}::${type}`] = new Date().toISOString();
-  localStorage.setItem(localKey, JSON.stringify(local));
+  const local = JSON.parse(localStorage.getItem(`rym_reported_${period}`) || '{}');
+  local[`${member.memberId}::${type}`] = new Date().toISOString();
+  localStorage.setItem(`rym_reported_${period}`, JSON.stringify(local));
 }
 
-// ─── Flush any queued submissions (sent while offline) ───
-async function flushQueue() {
-  const pending = dequeueAll();
-  if (!pending.length) return;
-  for (const p of pending) {
-    try { await apiPost(p); } catch(e) { queueSubmission(p); } // re-queue if still failing
-  }
-}
-
-// ═══════════════════════════════════════════════
-//  NAVIGATION
-// ═══════════════════════════════════════════════
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-
-function doLogout() {
-  currentLeader = null;
-  currentMember = null;
-  currentTab = 'followup';
-  document.getElementById('header-leader-name').textContent = '';
-  document.getElementById('logout-btn').style.display = 'none';
-  document.getElementById('login-input').value = '';
-  document.getElementById('login-error').style.display = 'none';
-  history.pushState('', '', window.location.pathname);
-  showScreen('screen-login');
-}
-
-// Scrub any localStorage keys written with 'undefined' as the memberId
-// (from the previous buggy version) — run once on page load
+// ─── Scrub any bad 'undefined::' keys from previous bug ───
 function scrubBadLocalKeys() {
   const period = currentPeriodKey();
   const localKey = `rym_reported_${period}`;
@@ -1026,8 +970,37 @@ function scrubBadLocalKeys() {
 }
 scrubBadLocalKeys();
 
+// ─── Flush offline queue ───
+async function flushQueue() {
+  const pending = dequeueAll();
+  if (!pending.length) return;
+  for (const p of pending) {
+    try { await apiPost(p); } catch(e) { queueSubmission(p); }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
 function goBack() {
   showScreen('screen-dashboard');
+}
+
+function doLogout() {
+  currentLeader = null;
+  currentMember = null;
+  currentTab = 'followup';
+  document.getElementById('header-leader-name').textContent = '';
+  document.getElementById('logout-btn').style.display = 'none';
+  document.getElementById('login-input').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  history.pushState('', '', window.location.pathname);
+  showScreen('screen-login');
 }
 
 function checkAdminRoute() {
@@ -1043,7 +1016,6 @@ function checkAdminRoute() {
     }
   }
 }
-
 window.addEventListener('hashchange', checkAdminRoute);
 
 // ═══════════════════════════════════════════════
@@ -1080,13 +1052,6 @@ async function doLogin() {
   const id = document.getElementById('login-input').value.trim().toUpperCase();
   document.getElementById('login-error').style.display = 'none';
 
-  // If not configured yet, show helpful message
-  if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-    document.getElementById('login-error').textContent = 'App not configured yet. See README for setup.';
-    document.getElementById('login-error').style.display = 'block';
-    return;
-  }
-
   try {
     showLoading('Signing in...');
     await loadRoster();
@@ -1112,9 +1077,7 @@ async function doLogin() {
     await loadSubmissions();
     hideLoading();
 
-    // Flush any offline submissions
     flushQueue();
-
     switchTab('followup');
     showScreen('screen-dashboard');
   } catch(e) {
@@ -1124,12 +1087,10 @@ async function doLogin() {
   }
 }
 
-// Allow Enter key on login input
 document.getElementById('login-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') doLogin();
 });
 
-// Auto-login from URL param e.g. ?id=FL-001, or admin from hash
 (function autoLogin() {
   checkAdminRoute();
   const params = new URLSearchParams(window.location.search);
@@ -1150,15 +1111,12 @@ function buildDateSelect(containerId, defaultDate) {
   const d = defaultDate || new Date();
   const day = d.getDate(), month = d.getMonth(), year = d.getFullYear();
 
-  // Day
   let dayOpts = '';
   for (let i = 1; i <= 31; i++) dayOpts += `<option value="${i}" ${i === day ? 'selected' : ''}>${i}</option>`;
 
-  // Month
   let monthOpts = '';
   MONTHS.forEach((m, i) => { monthOpts += `<option value="${i}" ${i === month ? 'selected' : ''}>${m}</option>`; });
 
-  // Year — current year and one back
   let yearOpts = '';
   for (let y = year; y >= year - 1; y--) { yearOpts += `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`; }
 
@@ -1174,7 +1132,6 @@ function getDateValue(containerId) {
   const month = document.getElementById(`${containerId}-month`)?.value;
   const year  = document.getElementById(`${containerId}-year`)?.value;
   if (!day || month === undefined || !year) return '';
-  // Return YYYY-MM-DD
   return `${year}-${String(Number(month)+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 }
 
@@ -1199,11 +1156,11 @@ function renderMembers() {
   }
 
   const total = currentLeader.members.length;
-  const done = currentLeader.members.filter(m => hasReportThisPeriod(m.memberId, currentTab)).length;
+  const done = currentLeader.members.filter(m => hasReportThisPeriod(m, currentTab)).length;
   if (countEl) countEl.textContent = `${done} of ${total} reported this period`;
 
   container.innerHTML = currentLeader.members.map((m, i) => {
-    const reported = hasReportThisPeriod(m.memberId, currentTab);
+    const reported = hasReportThisPeriod(m, currentTab);
     const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
     return `
       <div class="member-card" onclick="openReport(${i})">
@@ -1235,7 +1192,6 @@ function openReport(memberIndex) {
   document.getElementById('form-followup').style.display = currentTab === 'followup' ? 'block' : 'none';
   document.getElementById('form-visitation').style.display = currentTab === 'visitation' ? 'block' : 'none';
 
-  // Reset + pre-fill date
   const today = new Date();
   if (currentTab === 'followup') {
     buildDateSelect('fu-date-row', today);
@@ -1293,18 +1249,23 @@ async function submitReport(type) {
   btn.disabled = true;
   btn.textContent = 'Submitting...';
 
-  // Mark locally immediately — persists across logout/login for this period
-  markReportedLocally(currentMember.memberId, type);
+  // Mark locally for same-device instant feedback
+  markReportedLocally(currentMember, type);
 
-  // Optimistically update in-memory submissions so badge flips immediately
-  submissions.push(payload);
-  cacheSet('rym_submissions', submissions);
+  // Optimistic push using lowercase keys matching Apps Script output
+  submissions.push({
+    type,
+    leaderid:    currentLeader.id,
+    membername:  currentMember.name,
+    period:      currentPeriodKey(),
+    submittedat: new Date().toISOString(),
+  });
+  cacheSet(`rym_submissions_${currentPeriodKey()}`, submissions);
 
   try {
     await apiPost(payload);
     showToast('Report submitted! 🙌', 'success');
   } catch(e) {
-    // Queue for retry when back online
     queueSubmission(payload);
     showToast('Saved offline — will sync when connected', 'success');
   }
@@ -1321,7 +1282,7 @@ async function submitReport(type) {
 async function loadAndRenderAdmin() {
   showLoading('Loading dashboard...');
   try {
-    await loadRoster(true); // force fresh on admin open
+    await loadRoster(true);
     const data = await apiGet('getAdminStats');
     hideLoading();
     renderAdmin(data);
