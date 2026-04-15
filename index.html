@@ -877,7 +877,7 @@
 // ═══════════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzwh-SGrHlQ1OAT8wz8rm1HHwDLfHIdwDegIG1v38TBRC9aSzAY7kl6pXxcb4kbJQpfZA/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyuoQJCyAEgvAWNjWMHWuV-UqpTL2AvHfPAtf4B7Bzj_BHZNtttiYHBEtUTV-ez7pwIRg/exec';
 
 const ADMIN_HASH = 'admin-regal2026';
 const ADMIN_PASS = 'regaladmin2026';
@@ -1512,6 +1512,7 @@ async function loadAndRenderAdmin() {
     renderAdmin(statsData);
   } catch(e) {
     hideLoading();
+    console.log("Error", e)
     showToast('Failed to load admin data', 'error');
   }
 }
