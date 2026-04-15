@@ -19,6 +19,8 @@
     --success: #3D7A4A;
     --error: #8B2E2E;
     --card: #FFFBF2;
+    --prayer: #6B3FA0;
+    --prayer-light: #EDE4F8;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -183,6 +185,8 @@
     border: 1.5px solid var(--border);
   }
   .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-prayer { background: var(--prayer-light); color: var(--prayer); border: 1.5px solid #C9A8E8; min-height: 48px; }
+  .btn-prayer:hover { background: #DDD0F0; }
   .btn-sm { padding: 7px 14px; font-size: 0.8rem; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
@@ -271,6 +275,9 @@
   }
   .badge-none { background: var(--cream-dark); color: var(--muted); }
   .badge-done { background: #DFF0E4; color: var(--success); }
+  .badge-prayer { background: var(--prayer-light); color: var(--prayer); }
+  .member-card.on-prayer-list { border-color: #C9A8E8; background: #FAF6FF; }
+  .member-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 
   /* ─── REPORT FORM ─── */
   #screen-report { padding: 16px; max-width: 640px; margin: 0 auto; }
@@ -536,6 +543,37 @@
   }
   .date-row select:focus { border-color: var(--gold); background: #fff; }
 
+  /* ─── PRAYER CARD ─── */
+  .prayer-card { background: #FAF6FF; border: 1.5px solid #C9A8E8; border-radius: 14px; padding: 18px 22px; margin-bottom: 14px; }
+  .prayer-card h4 { font-family: 'Libre Baskerville', serif; font-size: 0.95rem; color: var(--prayer); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .prayer-status-text { font-size: 0.85rem; color: var(--muted); }
+  .prayer-status-text strong { color: var(--prayer); }
+  .prayer-reason-display { font-size: 0.82rem; color: var(--prayer); background: var(--prayer-light); border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-style: italic; }
+
+  /* ─── ADMIN TABS ─── */
+  .admin-tabs { display: flex; gap: 6px; margin-bottom: 24px; background: var(--cream-dark); padding: 4px; border-radius: 10px; }
+  .admin-tab { flex: 1; padding: 9px; border-radius: 7px; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 600; cursor: pointer; background: transparent; color: var(--muted); transition: all 0.18s; min-height: 44px; }
+  .admin-tab.active { background: var(--deep); color: var(--gold-light); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .admin-panel { display: none; }
+  .admin-panel.active { display: block; }
+
+  /* ─── FOLD GROUP (members view) ─── */
+  .fold-group { margin-bottom: 20px; }
+  .fold-group-header { background: var(--deep); color: var(--gold-light); padding: 10px 16px; border-radius: 10px 10px 0 0; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+  .fold-group-header span { font-size: 0.75rem; font-weight: 400; color: rgba(232,201,122,0.7); }
+  .fold-member-row { background: var(--card); border: 1.5px solid var(--border); border-top: none; padding: 11px 16px; display: flex; align-items: center; gap: 12px; font-size: 0.86rem; }
+  .fold-member-row:last-child { border-radius: 0 0 10px 10px; }
+  .fold-member-initials { width: 30px; height: 30px; border-radius: 50%; background: var(--cream-dark); color: var(--muted); display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; }
+  .fold-member-name { flex: 1; font-weight: 500; }
+  .fold-member-phone { color: var(--muted); font-size: 0.78rem; }
+
+  /* ─── PRAYER LIST ADMIN ─── */
+  .prayer-list-item { background: #FAF6FF; border: 1.5px solid #C9A8E8; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; font-size: 0.85rem; }
+  .prayer-list-item .pli-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .prayer-list-item .pli-name { font-weight: 600; font-size: 0.9rem; color: var(--prayer); }
+  .prayer-list-item .pli-meta { color: var(--muted); font-size: 0.75rem; }
+  .prayer-list-item .pli-reason { color: var(--prayer); font-style: italic; margin-top: 6px; font-size: 0.82rem; }
+
   /* ─── MOBILE FIRST ─── */
   .member-card { min-height: 64px; -webkit-tap-highlight-color: transparent; }
   .tab { min-height: 44px; }
@@ -656,8 +694,9 @@
   </div>
   <p class="dash-sub" id="dash-date"></p>
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('followup')">📞 Follow-Up Log</button>
-    <button class="tab" onclick="switchTab('visitation')">🏠 Visitation Log</button>
+    <button class="tab active" onclick="switchTab('followup')">📞 Follow-Up</button>
+    <button class="tab" onclick="switchTab('visitation')">🏠 Visitation</button>
+    <button class="tab" onclick="switchTab('prayer')">🙏 Prayer List</button>
   </div>
   <div class="member-count" id="member-count"></div>
   <div id="members-container" class="members-list"></div>
@@ -763,43 +802,71 @@
       <button class="btn btn-gold" onclick="submitReport('visitation')" id="btn-submit-vis">Submit Visitation Report ✓</button>
     </div>
   </div>
-</div>
+  <!-- PRAYER FORM -->
+  <div id="form-prayer" style="display:none;">
+    <div class="prayer-card">
+      <h4>🙏 Prayer List</h4>
+      <div id="prayer-status-area"></div>
+    </div>
+    <div class="form-card" id="prayer-add-form">
+      <h4>Add to Prayer List</h4>
+      <div class="field">
+        <label>Prayer Point <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <textarea id="prayer-reason" placeholder="e.g. Going through a difficult time, needs spiritual encouragement..." style="min-height:80px;"></textarea>
+      </div>
+      <div class="submit-area" style="padding-bottom:0;">
+        <button class="btn btn-prayer" onclick="submitPrayerRequest()" id="btn-submit-prayer">🙏 Add to Prayer List</button>
+      </div>
+    </div>
+    <div id="prayer-remove-area" style="display:none;padding:0 0 32px;">
+      <button class="btn btn-outline" onclick="removePrayerRequest()" style="width:100%;">Remove from Prayer List</button>
+    </div>
+  </div>
 
-<!-- ADMIN -->
+</div>
 <div id="screen-admin" class="screen">
   <button class="back-btn" onclick="history.pushState('', '', window.location.pathname); showScreen('screen-login')">← Back to Login</button>
   <h2>Admin Dashboard</h2>
-  <p>Manage fold leaders, view submissions, and copy access links.</p>
+  <p>Manage fold leaders, view submissions, and monitor the flock.</p>
 
-  <div class="setup-banner">
-    <strong>⚙️ To save data to Google Sheets:</strong>
-    Replace <code>SCRIPT_URL</code> in the JS with your Google Apps Script Web App URL.
-    See the README for setup instructions.
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="switchAdminTab('overview')">📊 Overview</button>
+    <button class="admin-tab" onclick="switchAdminTab('members')">👥 Members</button>
+    <button class="admin-tab" onclick="switchAdminTab('prayer')">🙏 Prayer</button>
+    <button class="admin-tab" onclick="switchAdminTab('submissions')">📋 Reports</button>
   </div>
 
-  <div class="admin-grid" id="admin-stats"></div>
-
-  <div class="form-card" style="margin-bottom:16px;">
-    <h4>➕ Add Fold Leader</h4>
-    <div class="row-2">
-      <div class="field"><label>Leader Name</label><input type="text" id="new-leader-name" placeholder="Full name" /></div>
-      <div class="field"><label>Leader ID</label><input type="text" id="new-leader-id" placeholder="e.g. FL-004" /></div>
+  <div id="admin-panel-overview" class="admin-panel active">
+    <div class="setup-banner">
+      <strong>⚙️ To save data to Google Sheets:</strong>
+      Replace <code>SCRIPT_URL</code> in the JS with your Google Apps Script Web App URL.
     </div>
-    <button class="btn btn-primary btn-sm" onclick="addLeader()" style="width:auto;padding:9px 20px;">Add Leader</button>
-  </div>
-
-  <div class="leaders-table">
-    <div class="table-head">
-      <span>Leader</span>
-      <span>Members</span>
-      <span>Reports</span>
-      <span>Access Link</span>
+    <div class="admin-grid" id="admin-stats"></div>
+    <div class="form-card" style="margin-bottom:16px;">
+      <h4>➕ Add Fold Leader</h4>
+      <div class="row-2">
+        <div class="field"><label>Leader Name</label><input type="text" id="new-leader-name" placeholder="Full name" /></div>
+        <div class="field"><label>Leader ID</label><input type="text" id="new-leader-id" placeholder="e.g. FL-004" /></div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addLeader()" style="width:auto;padding:9px 20px;">Add Leader</button>
     </div>
-    <div id="admin-leaders-list"></div>
+    <div class="leaders-table">
+      <div class="table-head">
+        <span>Leader</span><span>Members</span><span>Reports</span><span>Access Link</span>
+      </div>
+      <div id="admin-leaders-list"></div>
+    </div>
   </div>
 
-  <div class="form-card">
-    <h4>📋 Recent Submissions</h4>
+  <div id="admin-panel-members" class="admin-panel">
+    <div id="admin-members-list"></div>
+  </div>
+
+  <div id="admin-panel-prayer" class="admin-panel">
+    <div id="admin-prayer-list"></div>
+  </div>
+
+  <div id="admin-panel-submissions" class="admin-panel">
     <div id="admin-submissions"></div>
   </div>
 </div>
@@ -849,6 +916,7 @@ function dequeueAll() {
 // ═══════════════════════════════════════════════
 let roster = { leaders: [] };
 let submissions = [];
+let prayerList = [];
 let currentLeader = null;
 let currentMember = null;
 let currentTab = 'followup';
@@ -900,7 +968,7 @@ async function loadRoster(forceRefresh = false) {
   hideLoading();
 }
 
-// ─── Load submissions for current period ───
+// ─── Load submissions ───
 async function loadSubmissions(forceRefresh = false) {
   const period = currentPeriodKey();
   const cacheKey = `rym_submissions_${period}`;
@@ -917,6 +985,34 @@ async function loadSubmissions(forceRefresh = false) {
     submissions = stale ? JSON.parse(stale).value || [] : [];
     console.warn('Could not load submissions, using cache', e);
   }
+}
+
+// ─── Load prayer list ───
+async function loadPrayerList(forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = cacheGet('rym_prayer', 3 * 60 * 1000);
+    if (cached) { prayerList = cached; return; }
+  }
+  try {
+    const data = await apiGet('getPrayerList');
+    prayerList = data.prayerList || [];
+    cacheSet('rym_prayer', prayerList);
+  } catch(e) {
+    prayerList = [];
+    console.warn('Could not load prayer list', e);
+  }
+}
+
+function isOnPrayerList(member) {
+  return prayerList.some(p =>
+    p.leaderid === currentLeader.id && p.membername === member.name && String(p.active) !== 'false'
+  );
+}
+
+function getPrayerEntry(member) {
+  return prayerList.find(p =>
+    p.leaderid === currentLeader.id && p.membername === member.name && String(p.active) !== 'false'
+  ) || null;
 }
 
 function currentPeriodKey() {
@@ -1074,7 +1170,7 @@ async function doLogin() {
     document.getElementById('dash-period-badge').textContent = `${now.toLocaleDateString('en-GB',{month:'short',year:'numeric'})} · ${half}`;
 
     showLoading('Loading your members...');
-    await loadSubmissions();
+    await Promise.all([loadSubmissions(), loadPrayerList()]);
     hideLoading();
 
     flushQueue();
@@ -1141,7 +1237,11 @@ function getDateValue(containerId) {
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', (i === 0 && tab === 'followup') || (i === 1 && tab === 'visitation'));
+    t.classList.toggle('active',
+      (i === 0 && tab === 'followup') ||
+      (i === 1 && tab === 'visitation') ||
+      (i === 2 && tab === 'prayer')
+    );
   });
   renderMembers();
 }
@@ -1155,25 +1255,48 @@ function renderMembers() {
     return;
   }
 
+  if (currentTab === 'prayer') {
+    const onList = currentLeader.members.filter(m => isOnPrayerList(m));
+    if (countEl) countEl.textContent = `${onList.length} of ${currentLeader.members.length} on prayer list`;
+    container.innerHTML = currentLeader.members.map((m, i) => {
+      const onPrayer = isOnPrayerList(m);
+      const entry = getPrayerEntry(m);
+      const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+      return `
+        <div class="member-card ${onPrayer ? 'on-prayer-list' : ''}" onclick="openReport(${i})">
+          <div class="member-avatar" style="${onPrayer ? 'background:var(--prayer)' : ''}">${initials}</div>
+          <div class="member-info">
+            <div class="member-name">${m.name}</div>
+            <div class="member-phone">${onPrayer && entry?.reason ? entry.reason : m.phone}</div>
+          </div>
+          <div class="member-badges">
+            <span class="member-badge ${onPrayer ? 'badge-prayer' : 'badge-none'}">${onPrayer ? '🙏 Praying' : 'Not listed'}</span>
+          </div>
+        </div>`;
+    }).join('');
+    return;
+  }
+
   const total = currentLeader.members.length;
   const done = currentLeader.members.filter(m => hasReportThisPeriod(m, currentTab)).length;
   if (countEl) countEl.textContent = `${done} of ${total} reported this period`;
 
   container.innerHTML = currentLeader.members.map((m, i) => {
     const reported = hasReportThisPeriod(m, currentTab);
+    const onPrayer = isOnPrayerList(m);
     const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
     return `
-      <div class="member-card" onclick="openReport(${i})">
+      <div class="member-card ${onPrayer ? 'on-prayer-list' : ''}" onclick="openReport(${i})">
         <div class="member-avatar">${initials}</div>
         <div class="member-info">
           <div class="member-name">${m.name}</div>
           <div class="member-phone">${m.phone}</div>
         </div>
-        <span class="member-badge ${reported ? 'badge-done' : 'badge-none'}">
-          ${reported ? '✓ Done' : 'Pending'}
-        </span>
-      </div>
-    `;
+        <div class="member-badges">
+          <span class="member-badge ${reported ? 'badge-done' : 'badge-none'}">${reported ? '✓ Done' : 'Pending'}</span>
+          ${onPrayer ? '<span class="member-badge badge-prayer">🙏</span>' : ''}
+        </div>
+      </div>`;
   }).join('');
 }
 
@@ -1189,8 +1312,9 @@ function openReport(memberIndex) {
   document.getElementById('report-member-name').textContent = m.name;
   document.getElementById('report-member-phone').textContent = m.phone;
 
-  document.getElementById('form-followup').style.display = currentTab === 'followup' ? 'block' : 'none';
+  document.getElementById('form-followup').style.display   = currentTab === 'followup'   ? 'block' : 'none';
   document.getElementById('form-visitation').style.display = currentTab === 'visitation' ? 'block' : 'none';
+  document.getElementById('form-prayer').style.display     = currentTab === 'prayer'     ? 'block' : 'none';
 
   const today = new Date();
   if (currentTab === 'followup') {
@@ -1199,15 +1323,98 @@ function openReport(memberIndex) {
     document.getElementById('fu-method').value = '';
     document.getElementById('fu-response').value = '';
     document.getElementById('fu-prayer').value = '';
-  } else {
+  } else if (currentTab === 'visitation') {
     buildDateSelect('vis-date-row', today);
     document.getElementById('vis-reason').value = '';
     document.getElementById('vis-obs').value = '';
     document.getElementById('vis-prayer').value = '';
     document.querySelectorAll('#vis-outcomes input').forEach(c => c.checked = false);
+  } else if (currentTab === 'prayer') {
+    renderPrayerForm(m);
   }
 
   showScreen('screen-report');
+}
+
+function renderPrayerForm(member) {
+  const entry = getPrayerEntry(member);
+  const statusArea = document.getElementById('prayer-status-area');
+  const addForm    = document.getElementById('prayer-add-form');
+  const removeArea = document.getElementById('prayer-remove-area');
+
+  if (entry) {
+    statusArea.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <span class="prayer-status-text"><strong>🙏 On the prayer list</strong></span>
+        <span style="font-size:0.72rem;color:var(--muted);">Added ${new Date(entry.addedat || entry.addedAt || Date.now()).toLocaleDateString('en-GB')}</span>
+      </div>
+      ${entry.reason ? `<div class="prayer-reason-display">"${entry.reason}"</div>` : ''}
+    `;
+    addForm.style.display    = 'none';
+    removeArea.style.display = 'block';
+  } else {
+    statusArea.innerHTML = `<p class="prayer-status-text">This member is not currently on the prayer list.</p>`;
+    document.getElementById('prayer-reason').value = '';
+    addForm.style.display    = 'block';
+    removeArea.style.display = 'none';
+  }
+}
+
+async function submitPrayerRequest() {
+  const reason = document.getElementById('prayer-reason').value.trim();
+  const btn = document.getElementById('btn-submit-prayer');
+  btn.disabled = true;
+  btn.textContent = 'Adding...';
+
+  const payload = {
+    action: 'addPrayerRequest',
+    leaderId: currentLeader.id,
+    leaderName: currentLeader.name,
+    memberName: currentMember.name,
+    memberPhone: currentMember.phone,
+    reason,
+    addedAt: new Date().toISOString(),
+    active: 'true',
+  };
+
+  // Optimistic update
+  prayerList = prayerList.filter(p => !(p.leaderid === currentLeader.id && p.membername === currentMember.name));
+  prayerList.push({ leaderid: currentLeader.id, leadername: currentLeader.name, membername: currentMember.name, reason, addedat: payload.addedAt, active: 'true' });
+  cacheSet('rym_prayer', prayerList);
+
+  try {
+    await apiPost(payload);
+    showToast('Added to prayer list 🙏', 'success');
+  } catch(e) {
+    showToast('Saved — will sync when connected', 'success');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🙏 Add to Prayer List';
+  renderPrayerForm(currentMember);
+  renderMembers();
+}
+
+async function removePrayerRequest() {
+  const payload = {
+    action: 'removePrayerRequest',
+    leaderId: currentLeader.id,
+    memberName: currentMember.name,
+  };
+
+  // Optimistic update
+  prayerList = prayerList.filter(p => !(p.leaderid === currentLeader.id && p.membername === currentMember.name));
+  cacheSet('rym_prayer', prayerList);
+
+  try {
+    await apiPost(payload);
+    showToast('Removed from prayer list', 'success');
+  } catch(e) {
+    showToast('Removed — will sync when connected', 'success');
+  }
+
+  renderPrayerForm(currentMember);
+  renderMembers();
 }
 
 async function submitReport(type) {
@@ -1279,13 +1486,30 @@ async function submitReport(type) {
 // ═══════════════════════════════════════════════
 //  ADMIN
 // ═══════════════════════════════════════════════
+function switchAdminTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach((t, i) => {
+    t.classList.toggle('active',
+      (i === 0 && tab === 'overview') ||
+      (i === 1 && tab === 'members') ||
+      (i === 2 && tab === 'prayer') ||
+      (i === 3 && tab === 'submissions')
+    );
+  });
+  document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`admin-panel-${tab}`).classList.add('active');
+}
+
 async function loadAndRenderAdmin() {
   showLoading('Loading dashboard...');
   try {
     await loadRoster(true);
-    const data = await apiGet('getAdminStats');
+    const [statsData, prayerData] = await Promise.all([
+      apiGet('getAdminStats'),
+      apiGet('getPrayerList'),
+    ]);
+    prayerList = prayerData.prayerList || [];
     hideLoading();
-    renderAdmin(data);
+    renderAdmin(statsData);
   } catch(e) {
     hideLoading();
     showToast('Failed to load admin data', 'error');
@@ -1294,16 +1518,18 @@ async function loadAndRenderAdmin() {
 
 function renderAdmin(stats = {}) {
   const totalMembers = roster.leaders.reduce((a, l) => a + l.members.length, 0);
-  const totalSubs = stats.totalSubmissions || 0;
-  const thisPeriod = stats.thisPeriodSubmissions || 0;
+  const activePrayer = prayerList.filter(p => String(p.active) !== 'false');
 
+  // ── Overview stats
   document.getElementById('admin-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Fold Leaders</div><div class="stat-value">${roster.leaders.length}</div></div>
     <div class="stat-card"><div class="stat-label">Total Members</div><div class="stat-value">${totalMembers}</div></div>
-    <div class="stat-card"><div class="stat-label">All-Time Reports</div><div class="stat-value">${totalSubs}</div></div>
-    <div class="stat-card"><div class="stat-label">This Period</div><div class="stat-value">${thisPeriod}</div></div>
+    <div class="stat-card"><div class="stat-label">All-Time Reports</div><div class="stat-value">${stats.totalSubmissions || 0}</div></div>
+    <div class="stat-card"><div class="stat-label">This Period</div><div class="stat-value">${stats.thisPeriodSubmissions || 0}</div></div>
+    <div class="stat-card" style="border-color:#C9A8E8;"><div class="stat-label" style="color:var(--prayer);">🙏 On Prayer List</div><div class="stat-value" style="color:var(--prayer);">${activePrayer.length}</div></div>
   `;
 
+  // ── Leaders table
   document.getElementById('admin-leaders-list').innerHTML = roster.leaders.map(l => {
     const reports = stats.leaderCounts?.[l.id] || 0;
     const link = `${window.location.origin}${window.location.pathname}?id=${l.id}`;
@@ -1313,10 +1539,42 @@ function renderAdmin(stats = {}) {
         <div>${l.members.length}</div>
         <div>${reports}</div>
         <div><button class="copy-link" onclick="copyLink('${link}', this)">📋 Copy link</button></div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 
+  // ── All Members by fold
+  document.getElementById('admin-members-list').innerHTML = roster.leaders.map(l => `
+    <div class="fold-group">
+      <div class="fold-group-header">
+        ${l.name} <span>${l.id} · ${l.members.length} member${l.members.length !== 1 ? 's' : ''}</span>
+      </div>
+      ${l.members.length ? l.members.map(m => {
+        const onPrayer = prayerList.some(p => p.leaderid === l.id && p.membername === m.name && String(p.active) !== 'false');
+        const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+        return `
+          <div class="fold-member-row">
+            <div class="fold-member-initials">${initials}</div>
+            <div class="fold-member-name">${m.name}</div>
+            <div class="fold-member-phone">${m.phone}</div>
+            ${onPrayer ? '<span class="member-badge badge-prayer" style="font-size:0.68rem;flex-shrink:0;">🙏</span>' : ''}
+          </div>`;
+      }).join('') : `<div class="fold-member-row" style="color:var(--muted);font-style:italic;">No members assigned</div>`}
+    </div>
+  `).join('');
+
+  // ── Prayer list panel
+  document.getElementById('admin-prayer-list').innerHTML = activePrayer.length ? activePrayer.map(p => `
+    <div class="prayer-list-item">
+      <div class="pli-header">
+        <span class="pli-name">🙏 ${p.membername}</span>
+        <span class="pli-meta">${p.addedat ? new Date(p.addedat).toLocaleDateString('en-GB') : ''}</span>
+      </div>
+      <div class="pli-meta">Fold: ${p.leadername || p.leaderid}</div>
+      ${p.reason ? `<div class="pli-reason">"${p.reason}"</div>` : ''}
+    </div>
+  `).join('') : '<div class="empty-state"><div class="icon">🙏</div><p>No members on the prayer list yet.</p></div>';
+
+  // ── Recent submissions panel
   const subs = stats.recentSubmissions || [];
   document.getElementById('admin-submissions').innerHTML = subs.length ? `
     <div class="submissions-list">${subs.map(s => {
@@ -1330,24 +1588,14 @@ function renderAdmin(stats = {}) {
           <span class="sub-date">${new Date(s.submittedAt || s.submittedat).toLocaleDateString('en-GB')}</span>
         </div>
         <div style="margin-bottom:8px;">
-          <span class="sub-tag ${isFollowup ? 'tag-followup' : 'tag-visitation'}">
-            ${isFollowup ? '📞 Follow-Up' : '🏠 Visitation'}
-          </span>
+          <span class="sub-tag ${isFollowup ? 'tag-followup' : 'tag-visitation'}">${isFollowup ? '📞 Follow-Up' : '🏠 Visitation'}</span>
           <span class="sub-tag" style="background:var(--cream-dark);color:var(--muted);">${s.leaderName || s.leadername || ''}</span>
           ${(s.context || s.reason) ? `<span class="sub-tag" style="background:var(--cream-dark);color:var(--muted);">${s.context || s.reason}</span>` : ''}
         </div>
-        ${responseText ? `
-          <div style="margin-bottom:6px;">
-            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:3px;">${isFollowup ? 'Member Response' : 'Observations'}</div>
-            <div class="sub-body">${responseText}</div>
-          </div>` : ''}
-        ${prayerText ? `
-          <div>
-            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:3px;">🙏 Prayer Needs</div>
-            <div class="sub-body">${prayerText}</div>
-          </div>` : ''}
-      </div>
-    `}).join('')}</div>
+        ${responseText ? `<div style="margin-bottom:6px;"><div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:3px;">${isFollowup ? 'Member Response' : 'Observations'}</div><div class="sub-body">${responseText}</div></div>` : ''}
+        ${prayerText ? `<div><div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:3px;">🙏 Prayer Needs</div><div class="sub-body">${prayerText}</div></div>` : ''}
+      </div>`;
+    }).join('')}</div>
   ` : '<div class="empty-state"><p>No submissions yet.</p></div>';
 }
 
