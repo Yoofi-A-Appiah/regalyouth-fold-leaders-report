@@ -348,6 +348,7 @@ header {
 .member-card:hover { border-color: var(--gold); box-shadow: 0 4px 16px rgba(201,168,76,.18); transform: translateY(-1px); }
 .member-card:active { transform: scale(.985); background: var(--bg); }
 .member-card.on-prayer-list { border-color: var(--purple-border); background: #FAF7FF; }
+.member-card.needs-info { border-color: #F0C85A; background: #FFFBEE; }
 .member-avatar {
   width: 44px; height: 44px;
   border-radius: 50%;
@@ -374,6 +375,7 @@ header {
 .badge-pending { background: var(--bg2); color: var(--muted); }
 .badge-done { background: var(--success-bg); color: var(--success); }
 .badge-prayer { background: var(--purple-light); color: var(--purple); }
+.badge-needsinfo { background: #FFF3D6; color: #8A6800; }
 
 /* ── EVENT CARDS (Attendance) ── */
 .events-list { display: flex; flex-direction: column; gap: 9px; }
@@ -1093,6 +1095,9 @@ header {
     </div>
   </div>
   <div class="dash-content">
+    <div class="field" id="member-search-wrap" style="margin-bottom:14px">
+      <input type="text" id="member-search" placeholder="🔍 Search members by name or phone..." oninput="applyMemberSearch()" autocomplete="off" />
+    </div>
     <div class="section-label" id="dash-section-label">Members</div>
     <div id="members-container" class="members-list"></div>
   </div>
@@ -1221,6 +1226,27 @@ header {
         <button class="btn btn-outline" onclick="removePrayerRequest()" style="width:100%">Remove from Prayer List</button>
       </div>
     </div>
+
+    <!-- NEEDS INFO -->
+    <div id="form-needsinfo" style="display:none">
+      <div class="prayer-card" style="background:#FFF7E6;border-color:#F0C85A">
+        <div class="prayer-card-title" style="color:#8A6800">❓ Needs More Info</div>
+        <div id="needsinfo-status-area"></div>
+      </div>
+      <div class="form-card" id="needsinfo-add-form">
+        <div class="form-card-title">Flag This Member</div>
+        <div class="field">
+          <label for="needsinfo-reason">What info is needed?</label>
+          <textarea id="needsinfo-reason" placeholder="e.g. Need phone number, home address, date of birth..." style="min-height:80px"></textarea>
+        </div>
+        <div class="submit-area">
+          <button class="btn" style="background:#F0C85A;color:#4A3800;width:100%" onclick="submitNeedsInfo()" id="btn-submit-needsinfo">❓ Flag as Needs Info</button>
+        </div>
+      </div>
+      <div id="needsinfo-remove-area" style="display:none;padding-top:4px">
+        <button class="btn btn-outline" onclick="removeNeedsInfo()" style="width:100%">Mark Info Complete</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1275,6 +1301,7 @@ header {
       <button class="admin-tab" onclick="switchAdminTab('performance')">📈 Leaders</button>
       <button class="admin-tab" onclick="switchAdminTab('members')">👥 Members</button>
       <button class="admin-tab" onclick="switchAdminTab('prayer')">🙏 Prayer</button>
+      <button class="admin-tab" onclick="switchAdminTab('needsinfo')">❓ Needs Info</button>
       <button class="admin-tab" onclick="switchAdminTab('submissions')">📋 Reports</button>
       <button class="admin-tab" onclick="switchAdminTab('attendance')">✅ Attendance</button>
       <button class="admin-tab" onclick="switchAdminTab('random')">🎲 Random Pick</button>
@@ -1283,7 +1310,7 @@ header {
     <div id="admin-panel-overview" class="admin-panel active">
       <div class="setup-banner">
         <strong>⚙️ Google Sheets integration:</strong>
-        Replace <code>SCRIPT_URL</code> in the JS with your Apps Script Web App URL. Add handlers for <code>getEvents</code>, <code>addEvent</code>, <code>deleteEvent</code>, <code>markAttendance</code>, and <code>getAttendance</code>.
+        Replace <code>SCRIPT_URL</code> in the JS with your Apps Script Web App URL. Add handlers for <code>getEvents</code>, <code>addEvent</code>, <code>deleteEvent</code>, <code>markAttendance</code>, <code>getAttendance</code>, <code>getNeedsInfoList</code>, <code>addNeedsInfo</code>, and <code>removeNeedsInfo</code>.
       </div>
       <div class="admin-grid" id="admin-stats"></div>
       <div class="form-card" style="margin-bottom:14px">
@@ -1358,11 +1385,18 @@ header {
         </div>
         <button class="btn btn-primary btn-sm" onclick="addMember()" style="width:auto;border-radius:8px">Add Member</button>
       </div>
+      <div class="field" style="margin-bottom:14px">
+        <input type="text" id="admin-member-search" placeholder="🔍 Search all members by name or phone..." oninput="filterAdminMembers()" autocomplete="off" />
+      </div>
       <div id="admin-members-list"></div>
     </div>
 
     <div id="admin-panel-prayer" class="admin-panel">
       <div id="admin-prayer-list"></div>
+    </div>
+
+    <div id="admin-panel-needsinfo" class="admin-panel">
+      <div id="admin-needsinfo-list"></div>
     </div>
 
     <div id="admin-panel-submissions" class="admin-panel">
@@ -1402,6 +1436,10 @@ header {
   <button class="nav-item" id="nav-prayer" onclick="switchTab('prayer')">
     <span class="nav-icon">🙏</span>
     <span class="nav-label">Prayer</span>
+  </button>
+  <button class="nav-item" id="nav-needsinfo" onclick="switchTab('needsinfo')">
+    <span class="nav-icon">❓</span>
+    <span class="nav-label">Info</span>
   </button>
   <button class="nav-item" id="nav-attendance" onclick="switchTab('attendance')">
     <span class="nav-icon">📅</span>
@@ -1452,6 +1490,7 @@ function dequeueAll() {
 let roster         = { leaders: [] };
 let submissions    = [];
 let prayerList     = [];
+let needsInfoList  = [];
 let events         = [];
 let allSubmissions = [];
 let currentLeader  = null;
@@ -1459,6 +1498,7 @@ let currentMember  = null;
 let currentTab     = 'followup';
 let currentEvent   = null;
 let localAttendance = {};  // memberName -> boolean, for current event session
+let memberSearchQuery = '';
 
 // ═══════════════════════════════════════════
 //  API
@@ -1539,6 +1579,18 @@ async function loadPrayerList(forceRefresh = false) {
   } catch(e) { prayerList = []; }
 }
 
+async function loadNeedsInfoList(forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = cacheGet('rym_needsinfo', 3 * 60 * 1000);
+    if (cached) { needsInfoList = cached; return; }
+  }
+  try {
+    const data = await apiGet('getNeedsInfoList');
+    needsInfoList = data.needsInfoList || [];
+    cacheSet('rym_needsinfo', needsInfoList);
+  } catch(e) { needsInfoList = cacheGet('rym_needsinfo', Infinity) || []; }
+}
+
 async function loadEvents(forceRefresh = false) {
   if (!forceRefresh) {
     const cached = cacheGet('rym_events', 5 * 60 * 1000);
@@ -1606,6 +1658,17 @@ function getPrayerEntry(member) {
   ) || null;
 }
 
+function needsMoreInfo(member) {
+  return needsInfoList.some(n =>
+    n.leaderid === currentLeader.id && n.membername === member.name && String(n.active) !== 'false'
+  );
+}
+function getNeedsInfoEntry(member) {
+  return needsInfoList.find(n =>
+    n.leaderid === currentLeader.id && n.membername === member.name && String(n.active) !== 'false'
+  ) || null;
+}
+
 // Scrub bad local keys from previous bug
 (function scrubBadLocalKeys() {
   const period = currentPeriodKey();
@@ -1652,6 +1715,9 @@ function goBack() {
 
 function doLogout() {
   currentLeader = null; currentMember = null; currentTab = 'followup';
+  memberSearchQuery = '';
+  const searchInput = document.getElementById('member-search');
+  if (searchInput) searchInput.value = '';
   document.getElementById('header-leader-name').textContent = '';
   document.getElementById('logout-btn').style.display = 'none';
   document.getElementById('login-input').value = '';
@@ -1777,6 +1843,7 @@ function adminShowSkeletons() {
   document.getElementById('perf-grid').innerHTML            = skeletonPerfCards(4);
   document.getElementById('admin-members-list').innerHTML   = skeletonFoldGroups(3);
   document.getElementById('admin-prayer-list').innerHTML    = skeletonPrayerItems(4);
+  document.getElementById('admin-needsinfo-list').innerHTML = skeletonPrayerItems(3);
   document.getElementById('admin-submissions').innerHTML    = `<div style="padding:4px 0">${skeletonReportCards(4)}</div>`;
   document.getElementById('admin-att-panel').innerHTML      = skeletonEventAdminCards(3);
   const evList = document.getElementById('admin-events-list');
@@ -1830,7 +1897,7 @@ async function doLogin() {
     document.getElementById('members-container').innerHTML = skeletonList(leader.members.length || 4);
     showScreen('screen-dashboard');
 
-    await Promise.all([loadSubmissions(), loadPrayerList(), loadEvents()]);
+    await Promise.all([loadSubmissions(), loadPrayerList(), loadNeedsInfoList(), loadEvents()]);
 
     flushQueue();
     renderDashboard();
@@ -1905,13 +1972,21 @@ function switchTab(tab) {
   }
 }
 
+function memberSearchAttr(m) {
+  return `${m.name} ${m.phone || ''}`.toLowerCase().replace(/"/g, '&quot;');
+}
+
 function renderDashboard() {
   if (!currentLeader) return;
 
+  const searchWrap = document.getElementById('member-search-wrap');
+
   if (currentTab === 'attendance') {
+    if (searchWrap) searchWrap.style.display = 'none';
     renderAttendanceEvents();
     return;
   }
+  if (searchWrap) searchWrap.style.display = 'block';
 
   const container = document.getElementById('members-container');
   const sectionLabel = document.getElementById('dash-section-label');
@@ -1924,7 +1999,7 @@ function renderDashboard() {
       const onPrayer = isOnPrayerList(m);
       const entry = getPrayerEntry(m);
       const initials = getInitials(m.name);
-      return `<div class="member-card ${onPrayer ? 'on-prayer-list' : ''}" onclick="openReport(${i})">
+      return `<div class="member-card ${onPrayer ? 'on-prayer-list' : ''}" data-search="${memberSearchAttr(m)}" onclick="openReport(${i})">
         <div class="member-avatar" style="${onPrayer ? 'background:var(--purple)' : ''}">${initials}</div>
         <div class="member-info">
           <div class="member-name">${m.name}</div>
@@ -1935,6 +2010,30 @@ function renderDashboard() {
         </div>
       </div>`;
     }).join('') || '<div class="empty-state"><div class="icon">👥</div><p>No members assigned.</p></div>';
+    applyMemberSearch();
+    return;
+  }
+
+  if (currentTab === 'needsinfo') {
+    sectionLabel.textContent = 'Needs More Info';
+    const onList = currentLeader.members.filter(m => needsMoreInfo(m));
+    updateProgress(`${onList.length} flagged`, `${onList.length} of ${currentLeader.members.length}`, onList.length, currentLeader.members.length);
+    container.innerHTML = currentLeader.members.map((m, i) => {
+      const flagged = needsMoreInfo(m);
+      const entry = getNeedsInfoEntry(m);
+      const initials = getInitials(m.name);
+      return `<div class="member-card ${flagged ? 'needs-info' : ''}" data-search="${memberSearchAttr(m)}" onclick="openReport(${i})">
+        <div class="member-avatar" style="${flagged ? 'background:#C98A1E' : ''}">${initials}</div>
+        <div class="member-info">
+          <div class="member-name">${m.name}</div>
+          <div class="member-sub">${flagged && entry?.reason ? entry.reason : m.phone}</div>
+        </div>
+        <div class="member-badges">
+          <span class="badge ${flagged ? 'badge-needsinfo' : 'badge-pending'}">${flagged ? '❓ Info needed' : 'Complete'}</span>
+        </div>
+      </div>`;
+    }).join('') || '<div class="empty-state"><div class="icon">👥</div><p>No members assigned.</p></div>';
+    applyMemberSearch();
     return;
   }
 
@@ -1952,8 +2051,9 @@ function renderDashboard() {
   container.innerHTML = currentLeader.members.map((m, i) => {
     const reported = hasReportThisPeriod(m, currentTab);
     const onPrayer = isOnPrayerList(m);
+    const flagged = needsMoreInfo(m);
     const initials = getInitials(m.name);
-    return `<div class="member-card ${onPrayer ? 'on-prayer-list' : ''}" onclick="openReport(${i})">
+    return `<div class="member-card ${onPrayer ? 'on-prayer-list' : ''}" data-search="${memberSearchAttr(m)}" onclick="openReport(${i})">
       <div class="member-avatar">${initials}</div>
       <div class="member-info">
         <div class="member-name">${m.name}</div>
@@ -1962,9 +2062,37 @@ function renderDashboard() {
       <div class="member-badges">
         <span class="badge ${reported ? 'badge-done' : 'badge-pending'}">${reported ? '✓ Done' : 'Pending'}</span>
         ${onPrayer ? '<span class="badge badge-prayer" style="padding:3px 6px">🙏</span>' : ''}
+        ${flagged ? '<span class="badge badge-needsinfo" style="padding:3px 6px">❓</span>' : ''}
       </div>
     </div>`;
   }).join('');
+  applyMemberSearch();
+}
+
+function applyMemberSearch() {
+  const input = document.getElementById('member-search');
+  const q = (input?.value || '').trim().toLowerCase();
+  memberSearchQuery = q;
+  const container = document.getElementById('members-container');
+  if (!container) return;
+  let anyVisible = false;
+  container.querySelectorAll('.member-card[data-search]').forEach(card => {
+    const match = !q || card.dataset.search.includes(q);
+    card.style.display = match ? '' : 'none';
+    if (match) anyVisible = true;
+  });
+  let note = document.getElementById('member-search-empty');
+  if (q && !anyVisible) {
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'member-search-empty';
+      note.className = 'empty-state';
+      note.innerHTML = '<div class="icon">🔍</div><p>No members match your search.</p>';
+      container.appendChild(note);
+    }
+  } else if (note) {
+    note.remove();
+  }
 }
 
 function updateProgress(labelText, countText, done, total) {
@@ -2153,6 +2281,7 @@ function openReport(memberIndex) {
   document.getElementById('form-followup').style.display   = currentTab === 'followup'   ? 'block' : 'none';
   document.getElementById('form-visitation').style.display = currentTab === 'visitation' ? 'block' : 'none';
   document.getElementById('form-prayer').style.display     = currentTab === 'prayer'     ? 'block' : 'none';
+  document.getElementById('form-needsinfo').style.display  = currentTab === 'needsinfo'  ? 'block' : 'none';
 
   const today = new Date();
   if (currentTab === 'followup') {
@@ -2166,6 +2295,8 @@ function openReport(memberIndex) {
     document.querySelectorAll('#vis-outcomes input').forEach(c => c.checked = false);
   } else if (currentTab === 'prayer') {
     renderPrayerForm(m);
+  } else if (currentTab === 'needsinfo') {
+    renderNeedsInfoForm(m);
   }
 
   showScreen('screen-report');
@@ -2228,6 +2359,64 @@ async function removePrayerRequest() {
   renderDashboard();
 }
 
+function renderNeedsInfoForm(member) {
+  const entry      = getNeedsInfoEntry(member);
+  const statusArea = document.getElementById('needsinfo-status-area');
+  const addForm    = document.getElementById('needsinfo-add-form');
+  const removeArea = document.getElementById('needsinfo-remove-area');
+
+  if (entry) {
+    statusArea.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span class="prayer-status-text" style="color:#8A6800"><strong>❓ Flagged — needs more info</strong></span>
+        <span style="font-size:0.7rem;color:var(--muted)">Flagged ${new Date(entry.addedat||entry.addedAt||Date.now()).toLocaleDateString('en-GB')}</span>
+      </div>
+      <div class="prayer-reason-display" style="color:#8A6800;background:rgba(240,200,90,.2)">"${entry.reason}"</div>`;
+    addForm.style.display    = 'none';
+    removeArea.style.display = 'block';
+  } else {
+    statusArea.innerHTML = '<p class="prayer-status-text">All required info is on file for this member.</p>';
+    document.getElementById('needsinfo-reason').value = '';
+    addForm.style.display    = 'block';
+    removeArea.style.display = 'none';
+  }
+}
+
+async function submitNeedsInfo() {
+  const reason = document.getElementById('needsinfo-reason').value.trim();
+  if (!reason) { showToast('Describe what info is needed', 'error'); return; }
+  const btn = document.getElementById('btn-submit-needsinfo');
+  btn.disabled = true; btn.textContent = 'Flagging...';
+
+  const payload = {
+    action: 'addNeedsInfo',
+    leaderId: currentLeader.id, leaderName: currentLeader.name,
+    memberName: currentMember.name, memberPhone: currentMember.phone,
+    reason, addedAt: new Date().toISOString(), active: 'true'
+  };
+
+  needsInfoList = needsInfoList.filter(n => !(n.leaderid === currentLeader.id && n.membername === currentMember.name));
+  needsInfoList.push({ leaderid: currentLeader.id, leadername: currentLeader.name, membername: currentMember.name, reason, addedat: payload.addedAt, active: 'true' });
+  cacheSet('rym_needsinfo', needsInfoList);
+
+  try { await apiPost(payload); showToast('Member flagged for follow-up ❓', 'success'); }
+  catch(e) { showToast('Saved — will sync when connected', 'success'); }
+
+  btn.disabled = false; btn.textContent = '❓ Flag as Needs Info';
+  renderNeedsInfoForm(currentMember);
+  renderDashboard();
+}
+
+async function removeNeedsInfo() {
+  const payload = { action: 'removeNeedsInfo', leaderId: currentLeader.id, memberName: currentMember.name };
+  needsInfoList = needsInfoList.filter(n => !(n.leaderid === currentLeader.id && n.membername === currentMember.name));
+  cacheSet('rym_needsinfo', needsInfoList);
+  try { await apiPost(payload); showToast('Marked info complete', 'success'); }
+  catch(e) { showToast('Updated — will sync when connected', 'success'); }
+  renderNeedsInfoForm(currentMember);
+  renderDashboard();
+}
+
 async function submitReport(type) {
   const btn = document.getElementById(`btn-submit-${type === 'followup' ? 'fu' : 'vis'}`);
 
@@ -2275,7 +2464,7 @@ async function submitReport(type) {
 // ═══════════════════════════════════════════
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach((t, i) => {
-    const tabs = ['overview','events','performance','members','prayer','submissions','attendance','random'];
+    const tabs = ['overview','events','performance','members','prayer','needsinfo','submissions','attendance','random'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
@@ -2299,6 +2488,14 @@ async function loadAndRenderAdmin() {
       apiGet('getPrayerList'),
     ]);
     prayerList = prayerData.prayerList || [];
+
+    try {
+      const needsInfoData = await apiGet('getNeedsInfoList');
+      needsInfoList = needsInfoData.needsInfoList || [];
+      cacheSet('rym_needsinfo', needsInfoList);
+    } catch(e) {
+      needsInfoList = cacheGet('rym_needsinfo', Infinity) || [];
+    }
 
     try {
       const eventsData = await apiGet('getEvents');
@@ -2325,7 +2522,7 @@ async function loadAndRenderAdmin() {
     renderLeaderPerformance('completion');
 
     const savedAdminTab = new URLSearchParams(window.location.search).get('admintab');
-    const validAdminTabs = ['overview','events','performance','members','prayer','submissions','attendance','random'];
+    const validAdminTabs = ['overview','events','performance','members','prayer','needsinfo','submissions','attendance','random'];
     if (savedAdminTab && validAdminTabs.includes(savedAdminTab) && savedAdminTab !== 'overview') {
       switchAdminTab(savedAdminTab);
     }
@@ -2338,6 +2535,7 @@ async function loadAndRenderAdmin() {
 function renderAdmin(stats = {}) {
   const totalMembers  = roster.leaders.reduce((a, l) => a + l.members.length, 0);
   const activePrayer  = prayerList.filter(p => String(p.active) !== 'false');
+  const activeNeedsInfo = needsInfoList.filter(n => String(n.active) !== 'false');
 
   // Stats
   document.getElementById('admin-stats').innerHTML = `
@@ -2346,6 +2544,7 @@ function renderAdmin(stats = {}) {
     <div class="stat-card"><div class="stat-label">All-Time Reports</div><div class="stat-value">${stats.totalSubmissions || 0}</div></div>
     <div class="stat-card"><div class="stat-label">This Period</div><div class="stat-value">${stats.thisPeriodSubmissions || 0}</div></div>
     <div class="stat-card purple"><div class="stat-label">🙏 Prayer List</div><div class="stat-value">${activePrayer.length}</div></div>
+    <div class="stat-card" style="border-color:#F0C85A"><div class="stat-label">❓ Needs Info</div><div class="stat-value" style="color:#8A6800">${activeNeedsInfo.length}</div></div>
     <div class="stat-card"><div class="stat-label">📅 Events</div><div class="stat-value">${events.length}</div></div>
   `;
 
@@ -2377,6 +2576,15 @@ function renderAdmin(stats = {}) {
       </div>`).join('') :
     '<div class="empty-state"><div class="icon">🙏</div><p>No members on the prayer list yet.</p></div>';
 
+  // Needs Info list
+  document.getElementById('admin-needsinfo-list').innerHTML = activeNeedsInfo.length ?
+    activeNeedsInfo.map(n => `
+      <div class="prayer-list-item" style="background:#FFF7E6;border-color:#F0C85A">
+        <div class="pli-header"><span class="pli-name" style="color:#8A6800">❓ ${n.membername}</span><span class="pli-meta">${n.addedat ? new Date(n.addedat).toLocaleDateString('en-GB') : ''}</span></div>
+        <div class="pli-meta">Fold: ${n.leadername || n.leaderid}</div>
+        ${n.reason ? `<div class="pli-reason" style="color:#8A6800">"${n.reason}"</div>` : ''}
+      </div>`).join('') :
+    '<div class="empty-state"><div class="icon">❓</div><p>No members flagged for more info.</p></div>';
 }
 
 function formatPeriod(period) {
@@ -2900,7 +3108,7 @@ function renderAdminMembers() {
       <div class="unassigned-header">⚠️ Unassigned (${unassigned.length})</div>
       ${unassigned.map(m => {
         const safe = m.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        return `<div class="unassigned-row">
+        return `<div class="unassigned-row" data-search="${memberSearchAttr(m)}">
           <div class="fold-initials">${getInitials(m.name)}</div>
           <div style="flex:1"><div class="fold-name">${m.name}</div><div class="fold-phone">${m.phone || ''}</div></div>
           <select class="assign-select" onchange="assignMember('${safe}','',this.value,this)">
@@ -2920,10 +3128,12 @@ function renderAdminMembers() {
       ${l.members.length ? l.members.map(m => {
         const safe = m.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         const onPrayer = prayerList.some(p => p.leaderid === l.id && p.membername === m.name && String(p.active) !== 'false');
-        return `<div class="fold-member-row">
+        const flagged = needsInfoList.some(n => n.leaderid === l.id && n.membername === m.name && String(n.active) !== 'false');
+        return `<div class="fold-member-row" data-search="${memberSearchAttr(m)}">
           <div class="fold-initials">${getInitials(m.name)}</div>
           <div style="flex:1"><div class="fold-name">${m.name}</div><div class="fold-phone">${m.phone || ''}</div></div>
           ${onPrayer ? '<span class="badge badge-prayer" style="font-size:0.65rem">🙏</span>' : ''}
+          ${flagged ? '<span class="badge badge-needsinfo" style="font-size:0.65rem">❓</span>' : ''}
           <select class="assign-select" onchange="assignMember('${safe}','${l.id}',this.value,this)" title="Move to another fold">
             <option value="">Move to...</option>
             <option value="__unassign__">Unassign</option>
@@ -2936,6 +3146,22 @@ function renderAdminMembers() {
   }).join('');
 
   document.getElementById('admin-members-list').innerHTML = html;
+  filterAdminMembers();
+}
+
+function filterAdminMembers() {
+  const q = (document.getElementById('admin-member-search')?.value || '').trim().toLowerCase();
+  const list = document.getElementById('admin-members-list');
+  if (!list) return;
+  list.querySelectorAll('.fold-group, .unassigned-group').forEach(group => {
+    let anyVisible = false;
+    group.querySelectorAll('[data-search]').forEach(row => {
+      const match = !q || row.dataset.search.includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) anyVisible = true;
+    });
+    group.style.display = (!q || anyVisible) ? '' : 'none';
+  });
 }
 
 async function addMember() {
