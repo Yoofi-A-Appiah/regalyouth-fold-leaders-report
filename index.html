@@ -1277,6 +1277,7 @@ header {
       <button class="admin-tab" onclick="switchAdminTab('prayer')">🙏 Prayer</button>
       <button class="admin-tab" onclick="switchAdminTab('submissions')">📋 Reports</button>
       <button class="admin-tab" onclick="switchAdminTab('attendance')">✅ Attendance</button>
+      <button class="admin-tab" onclick="switchAdminTab('random')">🎲 Random Pick</button>
     </div>
 
     <div id="admin-panel-overview" class="admin-panel active">
@@ -1370,6 +1371,20 @@ header {
 
     <div id="admin-panel-attendance" class="admin-panel">
       <div id="admin-att-panel"></div>
+    </div>
+
+    <div id="admin-panel-random" class="admin-panel">
+      <div class="form-card" style="margin-bottom:14px">
+        <div class="form-card-title">🎲 Random Person Picker</div>
+        <p style="color:var(--muted);font-size:0.82rem;line-height:1.6;margin-bottom:14px">Draw a random name from the whole flock — fold leaders and members alike. Handy for shout-outs, spot-check calls, or picking who shares next.</p>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;margin-bottom:14px;cursor:pointer">
+          <input type="checkbox" id="random-include-leaders" checked style="width:16px;height:16px;accent-color:var(--gold)" />
+          Include fold leaders in the draw
+        </label>
+        <button class="btn btn-gold" onclick="pickRandomPerson()" id="btn-random-pick">🎲 Pick Someone Random</button>
+      </div>
+      <div id="random-pick-result"></div>
+      <div id="random-pick-history"></div>
     </div>
   </div>
 </div>
@@ -1984,7 +1999,7 @@ function renderAttendanceEvents() {
   const sorted = [...events].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   container.innerHTML = sorted.map(ev => {
-    const d = new Date(ev.date + 'T00:00:00');
+    const d = parseEventDate(ev.date);
     const day = d.getDate();
     const month = MONTHS[d.getMonth()];
     const localKey = `rym_att_marked_${ev.id}_${currentLeader.id}`;
@@ -2015,7 +2030,7 @@ async function openAttendanceEvent(ev) {
   localAttendance = {};
 
   document.getElementById('attend-event-title').textContent = ev.name;
-  const d = new Date(ev.date + 'T00:00:00');
+  const d = parseEventDate(ev.date);
   document.getElementById('attend-event-date').textContent =
     d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -2260,7 +2275,7 @@ async function submitReport(type) {
 // ═══════════════════════════════════════════
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach((t, i) => {
-    const tabs = ['overview','events','performance','members','prayer','submissions','attendance'];
+    const tabs = ['overview','events','performance','members','prayer','submissions','attendance','random'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
@@ -2310,7 +2325,7 @@ async function loadAndRenderAdmin() {
     renderLeaderPerformance('completion');
 
     const savedAdminTab = new URLSearchParams(window.location.search).get('admintab');
-    const validAdminTabs = ['overview','events','performance','members','prayer','submissions','attendance'];
+    const validAdminTabs = ['overview','events','performance','members','prayer','submissions','attendance','random'];
     if (savedAdminTab && validAdminTabs.includes(savedAdminTab) && savedAdminTab !== 'overview') {
       switchAdminTab(savedAdminTab);
     }
@@ -2699,13 +2714,18 @@ function togglePeriodDetail(safeId, leaderId, period) {
   }
 }
 
-function fmtDate(val) {
-  if (!val) return '';
+function parseEventDate(val) {
+  if (!val) return new Date(NaN);
   const str = String(val).trim();
-  // Already a full ISO/datetime string — parse directly; otherwise treat as local date
-  const d = (str.includes('T') || str.includes('/') || str.length > 10)
+  // Already a full ISO/datetime string (e.g. from Sheets) — parse directly; otherwise treat as local YYYY-MM-DD
+  return (str.includes('T') || str.includes('/') || str.length > 10)
     ? new Date(str)
     : new Date(str + 'T00:00:00');
+}
+
+function fmtDate(val) {
+  if (!val) return '';
+  const d = parseEventDate(val);
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
@@ -2792,7 +2812,7 @@ function renderAdminEvents() {
   }
   const sorted = [...events].sort((a, b) => new Date(b.date) - new Date(a.date));
   list.innerHTML = sorted.map(ev => {
-    const d = new Date(ev.date + 'T00:00:00');
+    const d = parseEventDate(ev.date);
     return `<div class="event-admin-card">
       <div class="event-date-block" style="border-radius:var(--r-sm)">
         <div class="event-date-day">${d.getDate()}</div>
@@ -2978,6 +2998,71 @@ function copyLink(link, btn) {
 }
 
 // ═══════════════════════════════════════════
+//  ADMIN — RANDOM PERSON PICKER
+// ═══════════════════════════════════════════
+let randomPickHistory = [];
+
+function buildRandomPool(includeLeaders) {
+  const pool = [];
+  roster.leaders.forEach(l => {
+    if (includeLeaders) {
+      pool.push({ type: 'leader', name: l.name, sub: `Fold Leader · ${l.id}`, phone: l.phone || '' });
+    }
+    l.members.forEach(m => {
+      pool.push({ type: 'member', name: m.name, sub: `Member · ${l.name}'s Fold`, phone: m.phone || '' });
+    });
+  });
+  (roster.unassigned || []).forEach(m => {
+    pool.push({ type: 'member', name: m.name, sub: 'Member · Unassigned', phone: m.phone || '' });
+  });
+  return pool;
+}
+
+function pickRandomPerson() {
+  const includeLeaders = document.getElementById('random-include-leaders').checked;
+  const pool = buildRandomPool(includeLeaders);
+  if (!pool.length) { showToast('No one to pick from yet', 'error'); return; }
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  randomPickHistory.unshift({ ...pick, at: new Date() });
+  randomPickHistory = randomPickHistory.slice(0, 8);
+  renderRandomPickResult(pick);
+  renderRandomPickHistory();
+}
+
+function renderRandomPickResult(pick) {
+  document.getElementById('random-pick-result').innerHTML = `
+    <div class="member-card" style="cursor:default;margin-bottom:16px">
+      <div class="member-avatar">${getInitials(pick.name)}</div>
+      <div class="member-info">
+        <div class="member-name">${pick.name}</div>
+        <div class="member-sub">${pick.sub}${pick.phone ? ' · ' + pick.phone : ''}</div>
+      </div>
+      <div class="member-badges">
+        ${pick.type === 'leader' ? '<span class="badge" style="background:var(--gold-pale);color:#A07010">Leader</span>' : '<span class="badge badge-pending">Member</span>'}
+      </div>
+    </div>`;
+}
+
+function renderRandomPickHistory() {
+  const el = document.getElementById('random-pick-history');
+  if (randomPickHistory.length < 2) { el.innerHTML = ''; return; }
+  const rest = randomPickHistory.slice(1);
+  el.innerHTML = `
+    <div class="section-label">Previous Picks</div>
+    <div class="members-list">
+      ${rest.map(p => `
+        <div class="member-card" style="cursor:default">
+          <div class="member-avatar" style="width:36px;height:36px;font-size:0.78rem">${getInitials(p.name)}</div>
+          <div class="member-info">
+            <div class="member-name" style="font-size:0.85rem">${p.name}</div>
+            <div class="member-sub">${p.sub}</div>
+          </div>
+          <div class="member-badges"><span class="badge badge-pending">${p.at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════
 //  ADMIN ATTENDANCE
 // ═══════════════════════════════════════════
 let adminAttState = 'events';
@@ -2996,7 +3081,7 @@ function renderAdminAttendancePanel() {
     const sorted = [...events].sort((a, b) => new Date(b.date) - new Date(a.date));
     panel.innerHTML = `<div class="section-label" style="margin-bottom:10px">Select Event to Record Attendance</div>
       ${sorted.map(ev => {
-        const d = new Date(ev.date + 'T00:00:00');
+        const d = parseEventDate(ev.date);
         return `<div class="event-admin-card" onclick="adminSelectAttEvent('${ev.id}')" style="cursor:pointer">
           <div class="event-date-block" style="border-radius:var(--r-sm)">
             <div class="event-date-day">${d.getDate()}</div>
