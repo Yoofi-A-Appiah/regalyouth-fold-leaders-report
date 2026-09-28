@@ -1,0 +1,267 @@
+@import "tailwindcss";
+
+:root {
+  --gold: #C9A84C;
+  --gold-light: #E8C97A;
+  --gold-pale: #FBF4E3;
+  --gold-gradient: linear-gradient(135deg, #C9A84C 0%, #E8C97A 50%, #B89230 100%);
+  --deep: #1A1208;
+  --warm: #2C1F0A;
+  --bg: #F4EFE6;
+  --bg2: #E8E0D0;
+  --card: #FFFDF9;
+  --card-hover: #FFFFFF;
+  --text: #1A1208;
+  --text2: #3D2E12;
+  --muted: #7A6A4A;
+  --border: #E0D4BA;
+  --border-light: #EFE8D8;
+  --success: #2D7A45;
+  --success-bg: #E4F5EC;
+  --error: #8B2E2E;
+  --error-bg: #FBEAEA;
+  --purple: #6B3FA0;
+  --purple-light: #EDE4F8;
+  --purple-border: #C9A8E8;
+  --info: #1F6B99;
+  --info-bg: #E8F4FA;
+  
+  --nav-h: 70px;
+  --header-h: 64px;
+  --r-sm: 8px;
+  --r: 14px;
+  --r-lg: 20px;
+  --r-full: 9999px;
+  
+  --sh-sm: 0 1px 3px rgba(26, 18, 8, 0.06);
+  --sh: 0 4px 16px rgba(26, 18, 8, 0.08);
+  --sh-lg: 0 12px 36px rgba(26, 18, 8, 0.14);
+  --sh-gold: 0 4px 20px rgba(201, 168, 76, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-serif {
+  font-family: 'Libre Baskerville', Georgia, serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--r-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--bg2) 25%, var(--border-light) 50%, var(--bg2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Header */
+.app-header {
+  height: var(--header-h);
+  background: var(--deep);
+  border-bottom: 1px solid rgba(232, 201, 122, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Card */
+.regal-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--sh-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.regal-card:hover {
+  box-shadow: var(--sh);
+  border-color: var(--gold);
+}
+
+/* Buttons */
+.btn-gold {
+  background: var(--gold-gradient);
+  color: #1A1208;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(201, 168, 76, 0.3);
+  transition: all 0.2s ease;
+}
+.btn-gold:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(201, 168, 76, 0.45);
+}
+.btn-gold:active:not(:disabled) {
+  transform: translateY(0);
+}
+.btn-gold:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #FFFDF8;
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--gold-pale);
+  border-color: var(--gold);
+}
+
+/* Inputs */
+.regal-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 0.92rem;
+  transition: all 0.2s;
+  outline: none;
+}
+.regal-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.18);
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.badge-gold {
+  background: var(--gold-pale);
+  color: #8A6800;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+}
+.badge-done {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid rgba(45, 122, 69, 0.25);
+}
+.badge-pending {
+  background: #F5EFE3;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.badge-prayer {
+  background: var(--purple-light);
+  color: var(--purple);
+  border: 1px solid var(--purple-border);
+}
+.badge-needsinfo {
+  background: #FEF6E4;
+  color: #A36B00;
+  border: 1px solid #ECC97D;
+}
+
+/* Toast */
+.toast-container {
+  position: fixed;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast-pill {
+  pointer-events: auto;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  animation: fadeIn 0.2s ease-out;
+}
+.toast-success {
+  background: #1A1208;
+  color: #E8C97A;
+  border: 1px solid rgba(232, 201, 122, 0.3);
+}
+.toast-error {
+  background: #3B0D0D;
+  color: #FFB3B3;
+  border: 1px solid rgba(255, 100, 100, 0.3);
+}
+
+/* Print styles for performance report */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .regal-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    break-inside: avoid;
+  }
+}
