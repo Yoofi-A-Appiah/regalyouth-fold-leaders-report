@@ -4,13 +4,10 @@ import { getAttendance, markAttendance } from '@/lib/db';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const eventId = searchParams.get('eventId');
+    const eventId = searchParams.get('eventId') || undefined;
     const leaderId = searchParams.get('leaderId') || undefined;
 
-    if (!eventId) {
-      return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
-    }
-
+    // No eventId -> full attendance history, used by the admin analytics tab.
     const data = await getAttendance(eventId, leaderId);
     return NextResponse.json(data);
   } catch (error: any) {

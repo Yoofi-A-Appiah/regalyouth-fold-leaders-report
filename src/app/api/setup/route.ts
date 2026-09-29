@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { initDb, isMongoConfigured } from '@/lib/db';
+import { initDb } from '@/lib/db';
+import { isMongoConfigured } from '@/lib/env';
 
 export async function GET() {
   try {

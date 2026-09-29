@@ -516,7 +516,7 @@ export const MemberReportModal: React.FC<MemberReportModalProps> = ({
                       <Flame className="w-4 h-4 text-purple-600" />
                       Active On Ministry Prayer List
                     </span>
-                    <span className="text-[10px] text-purple-700">
+                    <span className="text-[11px] text-purple-700">
                       Flagged on {new Date(activePrayer.addedAt).toLocaleDateString('en-GB')}
                     </span>
                   </div>
@@ -585,7 +585,7 @@ export const MemberReportModal: React.FC<MemberReportModalProps> = ({
                       <HelpCircle className="w-4 h-4 text-amber-600" />
                       Flagged — Needs More Info
                     </span>
-                    <span className="text-[10px] text-amber-700">
+                    <span className="text-[11px] text-amber-700">
                       Flagged on {new Date(activeNeedsInfo.addedAt).toLocaleDateString('en-GB')}
                     </span>
                   </div>

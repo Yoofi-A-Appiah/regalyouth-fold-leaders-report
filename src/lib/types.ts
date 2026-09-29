@@ -11,6 +11,9 @@ export interface Leader {
   name: string;
   addedAt?: string;
   members: Member[];
+  isExecutive?: boolean;
+  isSuperAdmin?: boolean;
+  isFoldCoordinator?: boolean;
 }
 
 export interface FollowUpSubmission {
@@ -96,4 +99,12 @@ export interface AdminStats {
   thisPeriodSubmissions: number;
   leaderCounts: Record<string, number>;
   recentSubmissions: Submission[];
+}
+
+export interface ExecResource {
+  id: string;
+  title: string;
+  url: string;
+  kind: 'doc' | 'sheet' | 'other';
+  addedAt: string;
 }

@@ -9,13 +9,16 @@ import {
   NeedsInfoItem,
   EventItem,
   AdminStats,
+  AttendanceRecord,
+  ExecResource,
 } from '@/lib/types';
-import { currentPeriodKey } from '@/lib/db';
+import { currentPeriodKey } from '@/lib/period';
 import { Header } from '@/components/Header';
 import { LoginScreen } from '@/components/LoginScreen';
 import { DashboardScreen } from '@/components/DashboardScreen';
 import { MemberReportModal } from '@/components/MemberReportModal';
 import { AttendanceScreen } from '@/components/AttendanceScreen';
+import { ExecutiveScreen } from '@/components/ExecutiveScreen';
 import { AdminPortal } from '@/components/AdminPortal';
 import { BottomNav } from '@/components/BottomNav';
 import { Toast, ToastMessage } from '@/components/Toast';
@@ -27,12 +30,18 @@ export default function Home() {
   const [prayerList, setPrayerList] = useState<PrayerRequest[]>([]);
   const [needsInfoList, setNeedsInfoList] = useState<NeedsInfoItem[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [resources, setResources] = useState<ExecResource[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
 
   const [currentLeader, setCurrentLeader] = useState<Leader | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'attendance' | 'admin'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'attendance' | 'executive' | 'admin'>('login');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
+  // Admin access comes from either the shared passcode (isAdmin, no fold attached) or
+  // being a fold leader flagged as Fold Coordinator / Super Admin (keeps their own fold).
+  const hasAdminAccess = isAdmin || !!currentLeader?.isFoldCoordinator || !!currentLeader?.isSuperAdmin;
 
   const [neonMode, setNeonMode] = useState<'neon' | 'in-memory' | 'checking'>('checking');
   const [periodKey, setPeriodKey] = useState<string>('');
@@ -52,13 +61,13 @@ export default function Home() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Check Neon DB and Fetch Data
+  // Check MongoDB connection and fetch data
   const loadAllData = useCallback(async () => {
     try {
       // 1. Setup / health check
       const setupRes = await fetch('/api/setup');
       const setupData = await setupRes.json();
-      setNeonMode(setupData.mode === 'neon' ? 'neon' : 'in-memory');
+      setNeonMode(setupData.mode === 'mongodb' ? 'neon' : 'in-memory');
 
       // 2. Fetch Roster
       const rosterRes = await fetch('/api/roster');
@@ -87,6 +96,16 @@ export default function Home() {
       const eventsRes = await fetch('/api/events');
       const eventsData = await eventsRes.json();
       if (eventsData.events) setEvents(eventsData.events);
+
+      // 6b. Fetch full Attendance history (for admin analytics -- follow-up vs. attendance)
+      const attRes = await fetch('/api/attendance');
+      const attData = await attRes.json();
+      if (attData.attendance) setAttendance(attData.attendance);
+
+      // 6c. Fetch Youth Executive resources (Google Docs/Sheets links)
+      const resRes = await fetch('/api/resources');
+      const resData = await resRes.json();
+      if (resData.resources) setResources(resData.resources);
 
       // 7. Fetch Admin Stats
       const statsRes = await fetch('/api/admin/stats');
@@ -140,7 +159,7 @@ export default function Home() {
       localStorage.setItem('rym_current_leader', JSON.stringify(leader));
       localStorage.removeItem('rym_is_admin');
     } catch {}
-    showToast(`Welcome, ${leader.name}! 👋`, 'success');
+    showToast(`Welcome, ${leader.name}!`, 'success');
   };
 
   // Login as Admin
@@ -184,7 +203,7 @@ export default function Home() {
       showToast(
         payload.type === 'visitation'
           ? 'Home visitation report logged! 🏡'
-          : 'Follow-up report submitted! 🙌',
+          : 'Follow-up report submitted',
         'success'
       );
       loadAllData();
@@ -331,9 +350,12 @@ export default function Home() {
     }
   };
 
-  // Fetch Attendance for event & leader
-  const fetchEventAttendance = async (eventId: string, leaderId: string) => {
-    const res = await fetch(`/api/attendance?eventId=${eventId}&leaderId=${leaderId}`);
+  // Fetch Attendance for an event -- omit leaderId to get every fold's records (admin mode)
+  const fetchEventAttendance = async (eventId: string, leaderId?: string) => {
+    const url = leaderId
+      ? `/api/attendance?eventId=${eventId}&leaderId=${leaderId}`
+      : `/api/attendance?eventId=${eventId}`;
+    const res = await fetch(url);
     const data = await res.json();
     return data.attendance || [];
   };
@@ -417,7 +439,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create event');
-      showToast(`Event "${payload.name}" published! 📅`, 'success');
+      showToast(`Event "${payload.name}" published`, 'success');
       loadAllData();
     } catch (err: any) {
       showToast(err.message || 'Failed to create event', 'error');
@@ -443,8 +465,77 @@ export default function Home() {
     }
   };
 
+  const handleSetFoldCoordinator = async (payload: { leaderId: string; isFoldCoordinator: boolean }) => {
+    try {
+      const res = await fetch('/api/roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setFoldCoordinator', ...payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update fold coordinator status');
+      showToast(payload.isFoldCoordinator ? 'Marked as Fold Coordinator' : 'Removed as Fold Coordinator', 'success');
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update fold coordinator status', 'error');
+      throw err;
+    }
+  };
+
+  const handleSetExecutive = async (payload: { leaderId: string; isExecutive: boolean }) => {
+    try {
+      const res = await fetch('/api/roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setExecutive', ...payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update executive status');
+      showToast(payload.isExecutive ? 'Marked as Youth Executive' : 'Removed as Youth Executive', 'success');
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update executive status', 'error');
+      throw err;
+    }
+  };
+
+  const handleAddResource = async (payload: { title: string; url: string }) => {
+    try {
+      const res = await fetch('/api/resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add resource');
+      showToast(`"${payload.title}" added`, 'success');
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to add resource', 'error');
+      throw err;
+    }
+  };
+
+  const handleDeleteResource = async (id: string) => {
+    if (!confirm('Remove this resource from the Executive tab?')) return;
+    try {
+      const res = await fetch('/api/resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteResource', id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to remove resource');
+      showToast('Resource removed', 'info');
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to remove resource', 'error');
+      throw err;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col pb-16 sm:pb-8">
+    <div className="min-h-screen flex flex-col pb-16 sm:pb-20">
       {/* Toast Notifications */}
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
@@ -452,13 +543,7 @@ export default function Home() {
       <Header
         currentLeader={currentLeader}
         isAdmin={isAdmin}
-        neonMode={neonMode}
         onLogout={handleLogout}
-        onAdminClick={() => {
-          setIsAdmin(true);
-          setCurrentLeader(null);
-          setCurrentScreen('admin');
-        }}
       />
 
       {/* Main View Router */}
@@ -486,20 +571,36 @@ export default function Home() {
             onSelectMember={member => setSelectedMember(member)}
             onOpenAttendance={() => setCurrentScreen('attendance')}
           />
+        ) : currentScreen === 'attendance' && hasAdminAccess ? (
+          <AttendanceScreen
+            mode="all"
+            leaders={leaders}
+            unassigned={unassigned}
+            events={events}
+            onBack={() => setCurrentScreen(currentLeader ? 'dashboard' : 'admin')}
+            onSubmitAttendance={handleSubmitAttendance}
+            fetchEventAttendance={fetchEventAttendance}
+          />
         ) : currentScreen === 'attendance' && currentLeader ? (
           <AttendanceScreen
+            mode="fold"
             currentLeader={currentLeader}
             events={events}
             onBack={() => setCurrentScreen('dashboard')}
             onSubmitAttendance={handleSubmitAttendance}
             fetchEventAttendance={fetchEventAttendance}
           />
-        ) : currentScreen === 'admin' ? (
+        ) : currentScreen === 'executive' && currentLeader && (currentLeader.isExecutive || currentLeader.isSuperAdmin) ? (
+          <ExecutiveScreen resources={resources} />
+        ) : currentScreen === 'admin' && hasAdminAccess ? (
           <AdminPortal
             stats={stats}
             leaders={leaders}
             unassigned={unassigned}
             events={events}
+            attendance={attendance}
+            resources={resources}
+            isSuperAdmin={!!currentLeader?.isSuperAdmin}
             submissions={submissions}
             prayerList={prayerList}
             needsInfoList={needsInfoList}
@@ -510,6 +611,10 @@ export default function Home() {
             onRemoveMember={handleRemoveMember}
             onAddEvent={handleAddEvent}
             onDeleteEvent={handleDeleteEvent}
+            onSetExecutive={handleSetExecutive}
+            onSetFoldCoordinator={handleSetFoldCoordinator}
+            onAddResource={handleAddResource}
+            onDeleteResource={handleDeleteResource}
             onRefreshData={loadAllData}
           />
         ) : (
@@ -542,22 +647,26 @@ export default function Home() {
       {/* Mobile Bottom Navigation */}
       {currentScreen !== 'login' && (
         <BottomNav
-          currentScreen={currentScreen === 'admin' ? 'admin' : currentScreen === 'attendance' ? 'attendance' : 'dashboard'}
-          isAdmin={isAdmin}
+          currentScreen={
+            currentScreen === 'admin' || currentScreen === 'attendance' || currentScreen === 'executive'
+              ? currentScreen
+              : 'dashboard'
+          }
+          hasFold={!!currentLeader}
+          isAdmin={hasAdminAccess}
+          isExecutive={!!currentLeader?.isExecutive || !!currentLeader?.isSuperAdmin}
           onNavigate={screen => {
             if (screen === 'admin') {
-              setIsAdmin(true);
-              setCurrentLeader(null);
-              setCurrentScreen('admin');
+              // BottomNav only renders this tab when hasAdminAccess is already true.
+              if (hasAdminAccess) setCurrentScreen('admin');
+            } else if (screen === 'executive') {
+              // BottomNav only renders this tab when the flag is already true.
+              if (currentLeader?.isExecutive || currentLeader?.isSuperAdmin) setCurrentScreen('executive');
             } else if (screen === 'dashboard') {
               if (currentLeader) setCurrentScreen('dashboard');
-              else if (leaders.length > 0) handleLoginLeader(leaders[0]);
             } else if (screen === 'attendance') {
-              if (currentLeader) setCurrentScreen('attendance');
-              else if (leaders.length > 0) {
-                setCurrentLeader(leaders[0]);
-                setCurrentScreen('attendance');
-              }
+              // Admin (any route) marks attendance across every fold; a fold leader marks just their own.
+              if (hasAdminAccess || currentLeader) setCurrentScreen('attendance');
             }
           }}
         />

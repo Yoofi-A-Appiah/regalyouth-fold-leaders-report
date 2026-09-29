@@ -1,15 +1,8 @@
 "use server"
 import { MongoClient, Db } from 'mongodb';
-import { Leader, Member, Submission, PrayerRequest, NeedsInfoItem, EventItem, AttendanceRecord, AdminStats } from './types';
+import { Leader, Member, Submission, PrayerRequest, NeedsInfoItem, EventItem, AttendanceRecord, AdminStats, ExecResource } from './types';
 import { INITIAL_LEADERS, INITIAL_UNASSIGNED, INITIAL_EVENTS } from './seed-data';
-
-// Helper for current period key (e.g. 2026-09-B)
-export async function currentPeriodKey(): string {
-  const now = new Date();
-  const half = now.getDate() <= 15 ? 'A' : 'B';
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${half}`;
-}
+import { currentPeriodKey } from './period';
 
 // In-Memory Fallback Store (active if MONGODB_URI is not set or has placeholders)
 class MemoryStore {
@@ -20,6 +13,7 @@ class MemoryStore {
   needsInfoList: NeedsInfoItem[] = [];
   events: EventItem[] = JSON.parse(JSON.stringify(INITIAL_EVENTS));
   attendance: AttendanceRecord[] = [];
+  resources: ExecResource[] = [];
 }
 
 const globalForStore = globalThis as unknown as {
@@ -28,14 +22,6 @@ const globalForStore = globalThis as unknown as {
 };
 
 const memStore = globalForStore.__rymStore ?? (globalForStore.__rymStore = new MemoryStore());
-
-export async function isMongoConfigured(): boolean {
-  const uri = process.env.MONGODB_URI || process.env.DATABASE_URL;
-  if (!uri) return false;
-  // If user still has placeholder <db_username> or <db_password>
-  if (uri.includes('<db_username>') || uri.includes('<db_password>')) return false;
-  return true;
-}
 
 function getMongoClientPromise(): Promise<MongoClient> | null {
   const uri = process.env.MONGODB_URI || process.env.DATABASE_URL;
@@ -141,6 +127,9 @@ export async function getRoster(): Promise<{ leaders: Leader[]; unassigned: Memb
     id: doc.id,
     name: doc.name,
     addedAt: doc.addedAt,
+    isExecutive: !!doc.isExecutive,
+    isSuperAdmin: !!doc.isSuperAdmin,
+    isFoldCoordinator: !!doc.isFoldCoordinator,
     members: (doc.members || []).map((m: any) => ({
       name: m.name,
       phone: m.phone || '',
@@ -182,6 +171,44 @@ export async function addLeader(data: { id: string; name: string }): Promise<{ o
     addedAt: new Date().toISOString(),
     members: [],
   });
+  return { ok: true };
+}
+
+export async function setLeaderExecutive(data: { leaderId: string; isExecutive: boolean }): Promise<{ ok: boolean }> {
+  const db = await getDb();
+  const leaderId = data.leaderId.trim().toUpperCase();
+
+  if (!db) {
+    const leader = memStore.leaders.find(l => l.id === leaderId);
+    if (!leader) throw new Error('Leader not found');
+    leader.isExecutive = data.isExecutive;
+    return { ok: true };
+  }
+
+  await initDb();
+  const res = await db.collection('leaders').updateOne({ id: leaderId }, { $set: { isExecutive: data.isExecutive } });
+  if (res.matchedCount === 0) throw new Error('Leader not found');
+  return { ok: true };
+}
+
+// Super Admin is set by hand directly in MongoDB (exactly one person, not an app feature):
+//   db.leaders.updateOne({ id: "FL-XXX" }, { $set: { isSuperAdmin: true } })
+// No endpoint mutates it -- getRoster() below just reads whatever is already there.
+
+export async function setLeaderFoldCoordinator(data: { leaderId: string; isFoldCoordinator: boolean }): Promise<{ ok: boolean }> {
+  const db = await getDb();
+  const leaderId = data.leaderId.trim().toUpperCase();
+
+  if (!db) {
+    const leader = memStore.leaders.find(l => l.id === leaderId);
+    if (!leader) throw new Error('Leader not found');
+    leader.isFoldCoordinator = data.isFoldCoordinator;
+    return { ok: true };
+  }
+
+  await initDb();
+  const res = await db.collection('leaders').updateOne({ id: leaderId }, { $set: { isFoldCoordinator: data.isFoldCoordinator } });
+  if (res.matchedCount === 0) throw new Error('Leader not found');
   return { ok: true };
 }
 
@@ -678,15 +705,18 @@ export async function deleteEvent(eventId: string): Promise<{ ok: boolean }> {
 }
 
 // ──────────────── ATTENDANCE ────────────────
-export async function getAttendance(eventId: string, leaderId?: string): Promise<{ attendance: AttendanceRecord[] }> {
+export async function getAttendance(eventId?: string, leaderId?: string): Promise<{ attendance: AttendanceRecord[] }> {
   const db = await getDb();
   if (!db) {
-    const filtered = memStore.attendance.filter(a => a.eventId === eventId && (!leaderId || a.leaderId === leaderId));
+    const filtered = memStore.attendance.filter(
+      a => (!eventId || a.eventId === eventId) && (!leaderId || a.leaderId === leaderId)
+    );
     return { attendance: filtered };
   }
 
   await initDb();
-  const filter: any = { eventId };
+  const filter: any = {};
+  if (eventId) filter.eventId = eventId;
   if (leaderId) filter.leaderId = leaderId;
 
   const docs = await db.collection('attendance').find(filter).toArray();
@@ -753,5 +783,60 @@ export async function markAttendance(data: {
       }))
     );
   }
+  return { ok: true };
+}
+
+// ──────────────── YOUTH EXECUTIVE RESOURCES ────────────────
+export async function getResources(): Promise<{ resources: ExecResource[] }> {
+  const db = await getDb();
+  if (!db) {
+    return { resources: memStore.resources };
+  }
+
+  await initDb();
+  const docs = await db.collection('resources').find({}).sort({ addedAt: -1 }).toArray();
+  const resources: ExecResource[] = docs.map(d => ({
+    id: d.id,
+    title: d.title,
+    url: d.url,
+    kind: d.kind || 'other',
+    addedAt: d.addedAt,
+  }));
+  return { resources };
+}
+
+export async function addResource(data: { title: string; url: string; kind?: string }): Promise<{ ok: boolean }> {
+  const db = await getDb();
+  const id = `res-${Date.now()}`;
+  const kind: ExecResource['kind'] =
+    data.kind === 'doc' || data.kind === 'sheet' ? data.kind : /spreadsheets/.test(data.url) ? 'sheet' : /docs\.google\.com\/document/.test(data.url) ? 'doc' : 'other';
+
+  const doc: ExecResource = {
+    id,
+    title: data.title.trim(),
+    url: data.url.trim(),
+    kind,
+    addedAt: new Date().toISOString(),
+  };
+
+  if (!db) {
+    memStore.resources.unshift(doc);
+    return { ok: true };
+  }
+
+  await initDb();
+  await db.collection('resources').insertOne(doc);
+  return { ok: true };
+}
+
+export async function deleteResource(id: string): Promise<{ ok: boolean }> {
+  const db = await getDb();
+  if (!db) {
+    memStore.resources = memStore.resources.filter(r => r.id !== id);
+    return { ok: true };
+  }
+
+  await initDb();
+  await db.collection('resources').deleteOne({ id });
   return { ok: true };
 }
