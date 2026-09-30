@@ -729,6 +729,7 @@ export async function getAttendance(eventId?: string, leaderId?: string): Promis
     leaderName: d.leaderName,
     memberName: d.memberName,
     present: d.present,
+    isLeader: !!d.isLeader,
   }));
   return { attendance };
 }
@@ -738,7 +739,7 @@ export async function markAttendance(data: {
   eventName: string;
   leaderId: string;
   leaderName: string;
-  attendance: { memberName: string; present: boolean }[];
+  attendance: { memberName: string; present: boolean; isLeader?: boolean }[];
   markedAt?: string;
 }): Promise<{ ok: boolean }> {
   const db = await getDb();
@@ -758,6 +759,7 @@ export async function markAttendance(data: {
         leaderName: data.leaderName,
         memberName: item.memberName,
         present: item.present,
+        isLeader: !!item.isLeader,
       });
     });
     return { ok: true };
@@ -780,6 +782,7 @@ export async function markAttendance(data: {
         leaderName: data.leaderName,
         memberName: item.memberName,
         present: item.present,
+        isLeader: !!item.isLeader,
       }))
     );
   }

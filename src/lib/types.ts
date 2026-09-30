@@ -92,6 +92,8 @@ export interface AttendanceRecord {
   leaderName: string;
   memberName: string;
   present: boolean;
+  // true when the row is the fold leader themself, not one of their members
+  isLeader?: boolean;
 }
 
 export interface AdminStats {

@@ -86,6 +86,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'events'
+    | 'attendance'
     | 'performance'
     | 'analytics'
     | 'members'
@@ -109,6 +110,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [newMemberLeader, setNewMemberLeader] = useState(leaders[0]?.id || '');
 
   const [memberSearch, setMemberSearch] = useState('');
+  const [attEventId, setAttEventId] = useState('');
 
   // Performance Tab Period Filter
   const [selectedPerfPeriod, setSelectedPerfPeriod] = useState<string>('ALL');
@@ -281,6 +283,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         {[
           { id: 'overview', label: 'Overview', icon: LayoutDashboard },
           { id: 'events', label: 'Events', icon: Calendar },
+          { id: 'attendance', label: 'Attendance', icon: ClipboardList },
           { id: 'performance', label: 'Leader Performance', icon: BarChart3 },
           { id: 'analytics', label: 'Follow-Up Impact', icon: TrendingUp },
           { id: 'members', label: 'Members Directory', icon: Users },
@@ -549,6 +552,67 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       )}
 
+      {/* ── TAB: EVENT ATTENDANCE ── */}
+      {activeTab === 'attendance' && (() => {
+        const ev = events.find(e => e.id === attEventId) || events[0];
+        const recs = ev ? attendance.filter(a => a.eventId === ev.id) : [];
+        const folds = [
+          ...leaders.map(l => ({ id: l.id, name: l.name })),
+          ...(recs.some(a => !a.leaderId) ? [{ id: '', name: 'Unassigned' }] : []),
+        ]
+          .map(f => ({ ...f, recs: recs.filter(a => a.leaderId === f.id) }))
+          .filter(f => f.recs.length > 0);
+        const presentTotal = recs.filter(a => a.present).length;
+        return (
+          <div className="space-y-4">
+            <div className="regal-card p-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <h3 className="font-serif text-base font-bold text-[var(--deep)]">Event Attendance</h3>
+                <p className="text-xs text-[var(--muted)] mt-1 tnum">
+                  {recs.length === 0 ? 'No attendance marked for this event yet.' : `${presentTotal} present · ${recs.length - presentTotal} absent · ${recs.length} marked`}
+                </p>
+              </div>
+              <select
+                value={ev?.id || ''}
+                onChange={e => setAttEventId(e.target.value)}
+                className="regal-input text-xs sm:w-72"
+                aria-label="Event"
+              >
+                {events.map(e => (
+                  <option key={e.id} value={e.id}>{e.name} ({e.date?.slice(0, 10)})</option>
+                ))}
+              </select>
+            </div>
+
+            {folds.map(f => {
+              const present = f.recs.filter(a => a.present).length;
+              return (
+                <details key={f.id || 'unassigned'} className="regal-card overflow-hidden" open>
+                  <summary className="flex items-center gap-2 px-4 py-3 bg-[#FAF5EB] cursor-pointer">
+                    {f.id && <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-[var(--bg2)] text-[var(--deep)]">{f.id}</span>}
+                    <span className="font-semibold text-sm text-[var(--deep)]">{f.name}</span>
+                    <span className="text-[11px] text-[var(--muted)] tnum ml-auto">{present}/{f.recs.length} present</span>
+                  </summary>
+                  <div className="divide-y divide-[var(--border-light)]">
+                    {[...f.recs].sort((a, b) => Number(!!b.isLeader) - Number(!!a.isLeader)).map((a, i) => (
+                      <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
+                        <span className="text-[var(--deep)]">
+                          {a.memberName}
+                          {a.isLeader && <span className="badge badge-gold text-[11px] ml-2">Fold Leader</span>}
+                        </span>
+                        <span className={`text-xs font-semibold ${a.present ? 'text-[var(--success)]' : 'text-[var(--muted)]'}`}>
+                          {a.present ? 'Present' : 'Absent'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* ── TAB 3: LEADER PERFORMANCE ── */}
       {activeTab === 'performance' && (() => {
         // Compliance is only meaningful *within* one reporting period -- a leader's
@@ -693,7 +757,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             const contactedPeriods = new Set(contactSubs.map(s => s.period)).size;
 
             const records = attendance.filter(
-              a => a.leaderId === leader.id && a.memberName.trim().toLowerCase() === key
+              a => !a.isLeader && a.leaderId === leader.id && a.memberName.trim().toLowerCase() === key
             );
             const present = records.filter(a => a.present).length;
 

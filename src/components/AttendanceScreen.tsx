@@ -16,6 +16,7 @@ interface AttendanceMember {
   phone: string;
   leaderId: string;
   leaderName: string;
+  isLeader?: boolean;
   // Two different people can share a name within the same fold (or both unassigned) --
   // this disambiguates React's rendering identity only. Attendance state and record
   // matching still key by name, same as the backend, which has no per-member id.
@@ -31,17 +32,20 @@ interface AttendanceScreenProps {
   unassigned?: Member[];
   events: EventItem[];
   onBack: () => void;
-  onSubmitAttendance: (payload: {
+  // One call per save (one entry per fold) so the parent can show a single toast.
+  onSubmitAttendance: (payloads: {
     eventId: string;
     eventName: string;
     leaderId: string;
     leaderName: string;
-    attendance: { memberName: string; present: boolean }[];
-  }) => Promise<void>;
+    attendance: { memberName: string; present: boolean; isLeader?: boolean }[];
+  }[]) => Promise<void>;
   fetchEventAttendance: (eventId: string, leaderId?: string) => Promise<any[]>;
 }
 
-const keyFor = (leaderId: string, name: string) => `${leaderId}::${name.trim().toLowerCase()}`;
+const keyFor = (leaderId: string, name: string, isLeader?: boolean) =>
+  `${leaderId}::${isLeader ? 'leader:' : ''}${name.trim().toLowerCase()}`;
+const keyOf = (m: AttendanceMember) => keyFor(m.leaderId, m.name, m.isLeader);
 
 export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
   mode,
@@ -66,19 +70,23 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
 
   const members: AttendanceMember[] = useMemo(() => {
     if (mode === 'fold' && currentLeader) {
-      return (currentLeader.members || []).map((m, idx) => ({
-        name: m.name,
-        phone: m.phone,
-        leaderId: currentLeader.id,
-        leaderName: currentLeader.name,
-        idx,
-      }));
+      return [
+        { name: currentLeader.name, phone: '', leaderId: currentLeader.id, leaderName: currentLeader.name, isLeader: true, idx: -1 },
+        ...(currentLeader.members || []).map((m, idx) => ({
+          name: m.name,
+          phone: m.phone,
+          leaderId: currentLeader.id,
+          leaderName: currentLeader.name,
+          idx,
+        })),
+      ];
     }
     if (mode === 'all') {
       let idx = 0;
-      const fromLeaders = (leaders || []).flatMap(l =>
-        (l.members || []).map(m => ({ name: m.name, phone: m.phone, leaderId: l.id, leaderName: l.name, idx: idx++ }))
-      );
+      const fromLeaders = (leaders || []).flatMap(l => [
+        { name: l.name, phone: '', leaderId: l.id, leaderName: l.name, isLeader: true, idx: idx++ },
+        ...(l.members || []).map(m => ({ name: m.name, phone: m.phone, leaderId: l.id, leaderName: l.name, idx: idx++ })),
+      ]);
       const fromUnassigned = (unassigned || []).map(m => ({
         name: m.name,
         phone: m.phone,
@@ -103,12 +111,12 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
         if (!isMounted) return;
         const initial: Record<string, boolean> = {};
         members.forEach(m => {
-          initial[keyFor(m.leaderId, m.name)] = false;
+          initial[keyOf(m)] = false;
         });
         records.forEach((r: any) => {
           const name = r.memberName || r.membername;
           if (!name) return;
-          initial[keyFor(r.leaderId ?? '', name)] = r.present === true || r.present === 'true';
+          initial[keyFor(r.leaderId ?? '', name, r.isLeader === true)] = r.present === true || r.present === 'true';
         });
         setAttendanceState(initial);
       })
@@ -116,7 +124,7 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
         if (!isMounted) return;
         const initial: Record<string, boolean> = {};
         members.forEach(m => {
-          initial[keyFor(m.leaderId, m.name)] = false;
+          initial[keyOf(m)] = false;
         });
         setAttendanceState(initial);
       })
@@ -130,20 +138,20 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventId, mode, currentLeader?.id, members.length]);
 
-  const toggleMember = (leaderId: string, name: string) => {
-    const k = keyFor(leaderId, name);
+  const toggleMember = (m: AttendanceMember) => {
+    const k = keyOf(m);
     setAttendanceState(prev => ({ ...prev, [k]: !prev[k] }));
   };
 
   const toggleAll = (state: boolean) => {
     const next: Record<string, boolean> = {};
     members.forEach(m => {
-      next[keyFor(m.leaderId, m.name)] = state;
+      next[keyOf(m)] = state;
     });
     setAttendanceState(next);
   };
 
-  const presentCount = members.filter(m => attendanceState[keyFor(m.leaderId, m.name)]).length;
+  const presentCount = members.filter(m => attendanceState[keyOf(m)]).length;
   const absentCount = members.length - presentCount;
 
   const filteredMembers = search.trim()
@@ -182,41 +190,25 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
     if (!selectedEvent) return;
     setSaving(true);
     try {
-      if (mode === 'fold' && currentLeader) {
-        const records = members.map(m => ({
+      // The API/db scope clearing+inserts by {eventId, leaderId}, so send one payload per fold.
+      const byLeader = new Map<string, { leaderName: string; records: { memberName: string; present: boolean; isLeader?: boolean }[] }>();
+      members.forEach(m => {
+        if (!byLeader.has(m.leaderId)) byLeader.set(m.leaderId, { leaderName: m.leaderName, records: [] });
+        byLeader.get(m.leaderId)!.records.push({
           memberName: m.name,
-          present: !!attendanceState[keyFor(m.leaderId, m.name)],
-        }));
-        await onSubmitAttendance({
+          present: !!attendanceState[keyOf(m)],
+          isLeader: m.isLeader,
+        });
+      });
+      await onSubmitAttendance(
+        Array.from(byLeader.entries()).map(([leaderId, { leaderName, records }]) => ({
           eventId: selectedEvent.id,
           eventName: selectedEvent.name,
-          leaderId: currentLeader.id,
-          leaderName: currentLeader.name,
+          leaderId,
+          leaderName,
           attendance: records,
-        });
-      } else {
-        // 'all' mode: the API/db scope clearing+inserts by {eventId, leaderId}, so submit
-        // one call per fold -- correct and idempotent per fold, no backend change needed.
-        const byLeader = new Map<string, { leaderName: string; records: { memberName: string; present: boolean }[] }>();
-        members.forEach(m => {
-          if (!byLeader.has(m.leaderId)) byLeader.set(m.leaderId, { leaderName: m.leaderName, records: [] });
-          byLeader.get(m.leaderId)!.records.push({
-            memberName: m.name,
-            present: !!attendanceState[keyFor(m.leaderId, m.name)],
-          });
-        });
-        await Promise.all(
-          Array.from(byLeader.entries()).map(([leaderId, { leaderName, records }]) =>
-            onSubmitAttendance({
-              eventId: selectedEvent.id,
-              eventName: selectedEvent.name,
-              leaderId,
-              leaderName,
-              attendance: records,
-            })
-          )
-        );
-      }
+        }))
+      );
       onBack();
     } finally {
       setSaving(false);
@@ -224,17 +216,20 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
   };
 
   const renderRow = (member: AttendanceMember) => {
-    const isPresent = !!attendanceState[keyFor(member.leaderId, member.name)];
+    const isPresent = !!attendanceState[keyOf(member)];
     return (
       <button
         type="button"
-        key={`${keyFor(member.leaderId, member.name)}#${member.idx}`}
-        onClick={() => toggleMember(member.leaderId, member.name)}
+        key={`${keyOf(member)}#${member.idx}`}
+        onClick={() => toggleMember(member)}
         aria-pressed={isPresent}
         className="row-link w-full text-left px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3"
       >
         <div className="min-w-0">
-          <div className="font-semibold text-[15px] text-[var(--deep)] truncate">{member.name}</div>
+          <div className="font-semibold text-[15px] text-[var(--deep)] truncate">
+            {member.name}
+            {member.isLeader && <span className="badge badge-gold text-[11px] ml-2 align-middle">Fold Leader</span>}
+          </div>
           {mode === 'all' ? (
             <div className="text-[13px] text-[var(--muted)] tnum">{member.phone || '—'}</div>
           ) : (
@@ -358,7 +353,7 @@ export const AttendanceScreen: React.FC<AttendanceScreenProps> = ({
         <div className="space-y-3">
           {groups.map(group => {
             const isOpen = !collapsedFolds.has(group.leaderId);
-            const groupPresent = group.members.filter(m => attendanceState[keyFor(m.leaderId, m.name)]).length;
+            const groupPresent = group.members.filter(m => attendanceState[keyOf(m)]).length;
             return (
               <div key={group.leaderId || 'unassigned'} className="rounded-xl border border-[var(--border-light)] overflow-hidden">
                 <button

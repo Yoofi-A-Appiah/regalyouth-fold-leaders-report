@@ -41,6 +41,8 @@ export default function Home() {
 
   // Admin access comes from either the shared passcode (isAdmin, no fold attached) or
   // being a fold leader flagged as Fold Coordinator / Super Admin (keeps their own fold).
+  // Executives and the Super Admin can also mark attendance for every fold.
+  const canMarkAll = isAdmin || !!currentLeader?.isFoldCoordinator || !!currentLeader?.isSuperAdmin || !!currentLeader?.isExecutive;
   const hasAdminAccess = isAdmin || !!currentLeader?.isFoldCoordinator || !!currentLeader?.isSuperAdmin;
 
   const [neonMode, setNeonMode] = useState<'neon' | 'in-memory' | 'checking'>('checking');
@@ -334,15 +336,23 @@ export default function Home() {
   };
 
   // Submit Attendance
-  const handleSubmitAttendance = async (payload: any) => {
+  // Takes one payload per fold and toasts once for the whole save.
+  const handleSubmitAttendance = async (payloads: any[]) => {
     try {
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to submit attendance');
+      await Promise.all(
+        payloads.map(async payload => {
+          const res = await fetch('/api/attendance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to submit attendance');
+        })
+      );
+      const attRes = await fetch('/api/attendance');
+      const attData = await attRes.json();
+      if (attData.attendance) setAttendance(attData.attendance);
       showToast('Attendance recorded successfully! ✅', 'success');
     } catch (err: any) {
       showToast(err.message || 'Failed to submit attendance', 'error');
@@ -571,7 +581,7 @@ export default function Home() {
             onSelectMember={member => setSelectedMember(member)}
             onOpenAttendance={() => setCurrentScreen('attendance')}
           />
-        ) : currentScreen === 'attendance' && hasAdminAccess ? (
+        ) : currentScreen === 'attendance' && canMarkAll ? (
           <AttendanceScreen
             mode="all"
             leaders={leaders}
@@ -666,7 +676,7 @@ export default function Home() {
               if (currentLeader) setCurrentScreen('dashboard');
             } else if (screen === 'attendance') {
               // Admin (any route) marks attendance across every fold; a fold leader marks just their own.
-              if (hasAdminAccess || currentLeader) setCurrentScreen('attendance');
+              if (canMarkAll || currentLeader) setCurrentScreen('attendance');
             }
           }}
         />
