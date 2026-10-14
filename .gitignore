@@ -36,6 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# roster/data exports (real names, phone numbers, prayer requests -- never commit)
+*.xlsx
+scripts/import-data.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRoster, addLeader, addMember, assignMember, removeMember } from '@/lib/db';
+import { getRoster, addLeader, addMember, assignMember, removeMember, setLeaderExecutive, setLeaderFoldCoordinator } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -29,6 +29,14 @@ export async function POST(req: NextRequest) {
     }
     if (action === 'removeMember') {
       const res = await removeMember(body);
+      return NextResponse.json(res);
+    }
+    if (action === 'setExecutive') {
+      const res = await setLeaderExecutive(body);
+      return NextResponse.json(res);
+    }
+    if (action === 'setFoldCoordinator') {
+      const res = await setLeaderFoldCoordinator(body);
       return NextResponse.json(res);
     }
 
