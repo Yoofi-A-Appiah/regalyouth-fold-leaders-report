@@ -195,6 +195,67 @@ export async function setLeaderExecutive(data: { leaderId: string; isExecutive: 
 //   db.leaders.updateOne({ id: "FL-XXX" }, { $set: { isSuperAdmin: true } })
 // No endpoint mutates it -- getRoster() below just reads whatever is already there.
 
+export async function demoteLeader(data: { leaderId: string; transferMembersTo?: string }): Promise<{ ok: boolean }> {
+  const db = await getDb();
+  const leaderId = data.leaderId.trim().toUpperCase();
+  const transferTo = data.transferMembersTo?.trim() || '';
+
+  if (!db) {
+    const idx = memStore.leaders.findIndex(l => l.id === leaderId);
+    if (idx === -1) throw new Error('Leader not found');
+    const leader = memStore.leaders[idx];
+
+    if (transferTo) {
+      const target = memStore.leaders.find(l => l.id === transferTo);
+      if (target) {
+        leader.members.forEach(m => target.members.push({ ...m, leaderId: transferTo }));
+      } else {
+        leader.members.forEach(m => memStore.unassigned.push({ ...m, leaderId: '' }));
+      }
+    } else {
+      leader.members.forEach(m => memStore.unassigned.push({ ...m, leaderId: '' }));
+    }
+
+    memStore.unassigned.push({ name: leader.name, phone: '', leaderId: '' });
+    memStore.leaders.splice(idx, 1);
+    return { ok: true };
+  }
+
+  await initDb();
+  const leaderDoc = await db.collection('leaders').findOne({ id: leaderId });
+  if (!leaderDoc) throw new Error('Leader not found');
+
+  const members = (leaderDoc.members || []) as any[];
+
+  if (members.length > 0) {
+    if (transferTo) {
+      await db.collection('leaders').updateOne(
+        { id: transferTo },
+        { $push: { members: { $each: members.map((m: any) => ({ ...m, leaderId: transferTo })) } } } as any
+      );
+    } else {
+      await db.collection('unassigned').insertMany(
+        members.map((m: any) => ({
+          name: m.name,
+          phone: m.phone || '',
+          leaderId: '',
+          addedAt: m.addedAt || new Date().toISOString(),
+        }))
+      );
+    }
+  }
+
+  await db.collection('unassigned').insertOne({
+    name: leaderDoc.name,
+    phone: leaderDoc.phone || '',
+    leaderId: '',
+    addedAt: new Date().toISOString(),
+  });
+
+  await db.collection('leaders').deleteOne({ id: leaderId });
+  return { ok: true };
+}
+
 export async function setLeaderFoldCoordinator(data: { leaderId: string; isFoldCoordinator: boolean }): Promise<{ ok: boolean }> {
   const db = await getDb();
   const leaderId = data.leaderId.trim().toUpperCase();

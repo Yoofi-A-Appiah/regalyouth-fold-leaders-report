@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   ChevronDown,
   Crown,
+  UserMinus,
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -54,6 +55,7 @@ interface AdminPortalProps {
   onDeleteEvent: (eventId: string) => Promise<void>;
   onSetExecutive: (payload: { leaderId: string; isExecutive: boolean }) => Promise<void>;
   onSetFoldCoordinator: (payload: { leaderId: string; isFoldCoordinator: boolean }) => Promise<void>;
+  onDemoteLeader: (payload: { leaderId: string; transferMembersTo?: string }) => Promise<void>;
   onAddResource: (payload: { title: string; url: string }) => Promise<void>;
   onDeleteResource: (id: string) => Promise<void>;
   onRefreshData: () => Promise<void>;
@@ -79,6 +81,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onDeleteEvent,
   onSetExecutive,
   onSetFoldCoordinator,
+  onDemoteLeader,
   onAddResource,
   onDeleteResource,
   onRefreshData,
@@ -433,6 +436,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         Fold size: <strong className="text-[var(--deep)]">{l.members.length}</strong> youth
                       </div>
                     </div>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => {
+                          if (!confirm(
+                            `Demote ${l.name} to member?\n\nTheir ${l.members.length} fold member${l.members.length !== 1 ? 's' : ''} will move to Unassigned. This cannot be undone.`
+                          )) return;
+                          onDemoteLeader({ leaderId: l.id });
+                        }}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                        title="Demote to Member"
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
