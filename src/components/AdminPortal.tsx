@@ -500,31 +500,104 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* ── TAB 3: LEADER PERFORMANCE ── */}
       {activeTab === 'performance' && (
-        <div className="regal-card p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="font-serif text-lg font-bold text-[var(--deep)]">
-                Fold Leader Submission Performance
-              </h3>
-              <p className="text-xs text-[var(--muted)]">
-                Track follow-up coverage and home visitation rates per fold
-              </p>
-            </div>
+        <div className="space-y-6">
+          {/* All-Time Submission Ranking */}
+          {(() => {
+            const ranked = [...leaders]
+              .map(leader => ({
+                leader,
+                total: submissions.filter(s => s.leaderId === leader.id).length,
+              }))
+              .sort((a, b) => b.total - a.total);
+            const maxTotal = ranked.length > 0 ? Math.max(ranked[0].total, 1) : 1;
+            const medals = ['🥇', '🥈', '🥉'];
 
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-[var(--deep)]">Period:</label>
-              <select
-                value={selectedPerfPeriod}
-                onChange={e => setSelectedPerfPeriod(e.target.value)}
-                className="regal-input text-xs py-1.5 w-36"
-              >
-                <option value="ALL">All Periods</option>
-                {submissionPeriods.map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+            return (
+              <div className="regal-card p-6 space-y-4">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-[var(--deep)]">
+                    All-Time Report Submission Ranking
+                  </h3>
+                  <p className="text-xs text-[var(--muted)]">
+                    Total reports submitted by each fold leader across all periods, ranked 1st to last
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {ranked.map(({ leader, total }, idx) => {
+                    const rankLabel = idx < 3 ? medals[idx] : `#${idx + 1}`;
+                    const pct = Math.round((total / maxTotal) * 100);
+                    return (
+                      <div
+                        key={leader.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                          idx === 0
+                            ? 'border-[var(--gold)] bg-[var(--gold-pale)]/60'
+                            : 'border-[var(--border-light)] bg-[#FFFDF9]'
+                        }`}
+                      >
+                        <div className="w-9 text-center text-base font-bold shrink-0">
+                          {rankLabel}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div>
+                              <span className="font-semibold text-xs text-[var(--deep)]">
+                                {leader.name}
+                              </span>
+                              <span className="font-mono text-[10px] text-[var(--muted)] ml-1.5">
+                                {leader.id}
+                              </span>
+                            </div>
+                            <span className="font-bold text-sm text-[var(--deep)] ml-2 shrink-0">
+                              {total} <span className="text-[11px] font-medium text-[var(--muted)]">report{total !== 1 ? 's' : ''}</span>
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[var(--gold)] to-[var(--success)]"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {leaders.length === 0 && (
+                    <p className="text-center text-xs text-[var(--muted)] py-6">
+                      No leaders registered yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="regal-card p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-[var(--deep)]">
+                  Fold Leader Submission Performance
+                </h3>
+                <p className="text-xs text-[var(--muted)]">
+                  Track follow-up coverage and home visitation rates per fold
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-[var(--deep)]">Period:</label>
+                <select
+                  value={selectedPerfPeriod}
+                  onChange={e => setSelectedPerfPeriod(e.target.value)}
+                  className="regal-input text-xs py-1.5 w-36"
+                >
+                  <option value="ALL">All Periods</option>
+                  {submissionPeriods.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
 
           {/* Performance Table */}
           <div className="overflow-x-auto">
@@ -587,6 +660,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 })}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       )}
