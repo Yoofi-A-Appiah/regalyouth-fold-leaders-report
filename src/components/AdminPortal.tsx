@@ -89,6 +89,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'events'
+    | 'attendance'
     | 'performance'
     | 'analytics'
     | 'members'
@@ -112,6 +113,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [newMemberLeader, setNewMemberLeader] = useState(leaders[0]?.id || '');
 
   const [memberSearch, setMemberSearch] = useState('');
+  const [attEventId, setAttEventId] = useState('');
 
   // Performance Tab Period Filter
   const [selectedPerfPeriod, setSelectedPerfPeriod] = useState<string>('ALL');
@@ -284,6 +286,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         {[
           { id: 'overview', label: 'Overview', icon: LayoutDashboard },
           { id: 'events', label: 'Events', icon: Calendar },
+          { id: 'attendance', label: 'Attendance', icon: ClipboardList },
           { id: 'performance', label: 'Leader Performance', icon: BarChart3 },
           { id: 'analytics', label: 'Follow-Up Impact', icon: TrendingUp },
           { id: 'members', label: 'Members Directory', icon: Users },
@@ -566,8 +569,278 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       )}
 
+      {/* ── TAB: EVENT ATTENDANCE ── */}
+      {activeTab === 'attendance' && (() => {
+        const ev = events.find(e => e.id === attEventId) || events[0];
+        const recs = ev ? attendance.filter(a => a.eventId === ev.id) : [];
+        const folds = [
+          ...leaders.map(l => ({ id: l.id, name: l.name })),
+          ...(recs.some(a => !a.leaderId) ? [{ id: '', name: 'Unassigned' }] : []),
+        ]
+          .map(f => ({ ...f, recs: recs.filter(a => a.leaderId === f.id) }))
+          .filter(f => f.recs.length > 0);
+        const presentTotal = recs.filter(a => a.present).length;
+        return (
+          <div className="space-y-4">
+            <div className="regal-card p-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <h3 className="font-serif text-base font-bold text-[var(--deep)]">Event Attendance</h3>
+                <p className="text-xs text-[var(--muted)] mt-1 tnum">
+                  {recs.length === 0 ? 'No attendance marked for this event yet.' : `${presentTotal} present · ${recs.length - presentTotal} absent · ${recs.length} marked`}
+                </p>
+              </div>
+              <select
+                value={ev?.id || ''}
+                onChange={e => setAttEventId(e.target.value)}
+                className="regal-input text-xs sm:w-72"
+                aria-label="Event"
+              >
+                {events.map(e => (
+                  <option key={e.id} value={e.id}>{e.name} ({e.date?.slice(0, 10)})</option>
+                ))}
+              </select>
+            </div>
+
+            {folds.map(f => {
+              const present = f.recs.filter(a => a.present).length;
+              return (
+                <details key={f.id || 'unassigned'} className="regal-card overflow-hidden" open>
+                  <summary className="flex items-center gap-2 px-4 py-3 bg-[#FAF5EB] cursor-pointer">
+                    {f.id && <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-[var(--bg2)] text-[var(--deep)]">{f.id}</span>}
+                    <span className="font-semibold text-sm text-[var(--deep)]">{f.name}</span>
+                    <span className="text-[11px] text-[var(--muted)] tnum ml-auto">{present}/{f.recs.length} present</span>
+                  </summary>
+                  <div className="divide-y divide-[var(--border-light)]">
+                    {[...f.recs].sort((a, b) => Number(!!b.isLeader) - Number(!!a.isLeader)).map((a, i) => (
+                      <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
+                        <span className="text-[var(--deep)]">
+                          {a.memberName}
+                          {a.isLeader && <span className="badge badge-gold text-[11px] ml-2">Fold Leader</span>}
+                        </span>
+                        <span className={`text-xs font-semibold ${a.present ? 'text-[var(--success)]' : 'text-[var(--muted)]'}`}>
+                          {a.present ? 'Present' : 'Absent'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* ── TAB 3: LEADER PERFORMANCE ── */}
-      {activeTab === 'performance' && (
+      {activeTab === 'performance' && (() => {
+        // Compliance is only meaningful *within* one reporting period -- a leader's
+        // fold size and roster both drift over time, so blending every period into
+        // one lifetime number hides recent gaps behind old good months. When "ALL"
+        // is selected, render one clearly-demarcated table per period instead of
+        // pooling their submissions together.
+        const periodsToShow = selectedPerfPeriod === 'ALL'
+          ? [...submissionPeriods].sort().reverse()
+          : [selectedPerfPeriod];
+
+        return (
+        <div className="regal-card p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-serif text-lg font-bold text-[var(--deep)]">
+                Fold Leader Submission Performance
+              </h3>
+              <p className="text-xs text-[var(--muted)]">
+                Follow-up coverage per fold, measured against that period's fold size -- one table per reporting period
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-[var(--deep)]">Period:</label>
+              <select
+                value={selectedPerfPeriod}
+                onChange={e => setSelectedPerfPeriod(e.target.value)}
+                className="regal-input text-xs py-1.5 w-36"
+              >
+                <option value="ALL">All Periods</option>
+                {submissionPeriods.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {periodsToShow.map(period => (
+            <div key={period} className="space-y-3">
+              {selectedPerfPeriod === 'ALL' && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="badge badge-gold">Period {period}</span>
+                  <div className="flex-1 h-px bg-[var(--border)]" />
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] bg-[#FAF5EB] text-[var(--deep)]">
+                      <th className="p-3 font-semibold">Leader</th>
+                      <th className="p-3 font-semibold">Fold Size</th>
+                      <th className="p-3 font-semibold">Follow-Ups</th>
+                      <th className="p-3 font-semibold">Visitations</th>
+                      <th className="p-3 font-semibold">Total Submissions</th>
+                      <th className="p-3 font-semibold">Members Reported</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-light)]">
+                    {leaders.map(leader => {
+                      const foldSize = leader.members.length;
+                      const relevantSubs = submissions.filter(
+                        s => s.leaderId === leader.id && s.period === period
+                      );
+
+                      const fuCount = relevantSubs.filter(s => s.type === 'followup').length;
+                      const visCount = relevantSubs.filter(s => s.type === 'visitation').length;
+                      const total = fuCount + visCount;
+
+                      const reportedMemberNames = new Set(
+                        relevantSubs.map(s => s.memberName.trim().toLowerCase())
+                      );
+                      const uniqueCount = leader.members.filter(m =>
+                        reportedMemberNames.has(m.name.trim().toLowerCase())
+                      ).length;
+
+                      const rate = foldSize > 0 ? Math.round((uniqueCount / foldSize) * 100) : null;
+
+                      return (
+                        <tr key={leader.id} className="hover:bg-[var(--gold-pale)]/40 transition-colors">
+                          <td className="p-3">
+                            <div className="font-semibold text-[var(--deep)]">{leader.name}</div>
+                            <div className="font-mono text-[11px] text-[var(--muted)]">{leader.id}</div>
+                          </td>
+                          <td className="p-3 font-medium tnum">{foldSize}</td>
+                          <td className="p-3 font-medium text-emerald-800 tnum">{fuCount}</td>
+                          <td className="p-3 font-medium text-amber-800 tnum">{visCount}</td>
+                          <td className="p-3 font-bold tnum">{total}</td>
+                          <td className="p-3">
+                            {rate === null ? (
+                              <span className="text-[var(--muted)]">No members assigned</span>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <div className="w-20 h-2 bg-stone-200 rounded-full overflow-hidden flex-shrink-0">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-[var(--gold)] to-[var(--success)] rounded-full"
+                                    style={{ width: `${rate}%` }}
+                                  />
+                                </div>
+                                <span className="font-semibold tnum">{uniqueCount}/{foldSize} ({rate}%)</span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          {periodsToShow.length === 0 && (
+            <p className="text-center text-xs text-[var(--muted)] py-12">
+              No reporting periods recorded yet.
+            </p>
+          )}
+        </div>
+        );
+      })()}
+
+      {/* ── TAB 3b: FOLLOW-UP IMPACT ANALYTICS ── */}
+      {activeTab === 'analytics' && (() => {
+        type MemberStat = {
+          name: string;
+          leaderName: string;
+          leaderId: string;
+          contactedPeriods: number;
+          totalContacts: number;
+          present: number;
+          totalMarked: number;
+        };
+
+        const memberStats: MemberStat[] = [];
+        leaders.forEach(leader => {
+          (leader.members || []).forEach(member => {
+            const key = member.name.trim().toLowerCase();
+            const contactSubs = submissions.filter(
+              s => s.leaderId === leader.id && s.memberName.trim().toLowerCase() === key
+            );
+            const contactedPeriods = new Set(contactSubs.map(s => s.period)).size;
+
+            const records = attendance.filter(
+              a => !a.isLeader && a.leaderId === leader.id && a.memberName.trim().toLowerCase() === key
+            );
+            const present = records.filter(a => a.present).length;
+
+            memberStats.push({
+              name: member.name,
+              leaderName: leader.name,
+              leaderId: leader.id,
+              contactedPeriods,
+              totalContacts: contactSubs.length,
+              present,
+              totalMarked: records.length,
+            });
+          });
+        });
+
+        // Only members who were actually marked at an event have a measurable attendance
+        // rate -- everyone else would silently skew any average toward 0% or get excluded
+        // unfairly, so they're kept out of the correlation and buckets, but still visible
+        // in the at-risk list (marked = 0 already reads as "no attendance data yet" there).
+        const withAttendance = memberStats.filter(m => m.totalMarked > 0);
+
+        const buckets: { label: string; test: (m: MemberStat) => boolean }[] = [
+          { label: 'Never followed up', test: m => m.contactedPeriods === 0 },
+          { label: 'Occasional (1-2 periods)', test: m => m.contactedPeriods >= 1 && m.contactedPeriods <= 2 },
+          { label: 'Regular (3+ periods)', test: m => m.contactedPeriods >= 3 },
+        ];
+        const bucketStats = buckets.map(b => {
+          const members = withAttendance.filter(b.test);
+          const present = members.reduce((sum, m) => sum + m.present, 0);
+          const totalMarked = members.reduce((sum, m) => sum + m.totalMarked, 0);
+          return {
+            ...b,
+            memberCount: members.length,
+            rate: totalMarked > 0 ? Math.round((present / totalMarked) * 100) : null,
+          };
+        });
+
+        // Pearson correlation between "periods contacted" and "individual attendance rate"
+        const corrPoints = withAttendance.map(m => ({
+          x: m.contactedPeriods,
+          y: m.present / m.totalMarked,
+        }));
+        let correlation: number | null = null;
+        if (corrPoints.length >= 3) {
+          const n = corrPoints.length;
+          const mx = corrPoints.reduce((s, p) => s + p.x, 0) / n;
+          const my = corrPoints.reduce((s, p) => s + p.y, 0) / n;
+          const cov = corrPoints.reduce((s, p) => s + (p.x - mx) * (p.y - my), 0);
+          const vx = Math.sqrt(corrPoints.reduce((s, p) => s + (p.x - mx) ** 2, 0));
+          const vy = Math.sqrt(corrPoints.reduce((s, p) => s + (p.y - my) ** 2, 0));
+          correlation = vx > 0 && vy > 0 ? cov / (vx * vy) : null;
+        }
+        const corrStrength = (r: number) => {
+          const a = Math.abs(r);
+          const strength = a < 0.1 ? 'negligible' : a < 0.3 ? 'weak' : a < 0.5 ? 'moderate' : a < 0.7 ? 'strong' : 'very strong';
+          return `${strength} ${r >= 0 ? 'positive' : 'negative'}`;
+        };
+
+        // At-risk: never contacted, and either never attended or attendance is measurably low
+        const atRisk = memberStats
+          .filter(m => m.contactedPeriods === 0 && (m.totalMarked === 0 || m.present / m.totalMarked < 0.5))
+          .sort((a, b) => (a.totalMarked === 0 ? -1 : a.present / a.totalMarked) - (b.totalMarked === 0 ? -1 : b.present / b.totalMarked))
+          .slice(0, 12);
+
+        return (
+
         <div className="space-y-6">
           {/* All-Time Submission Ranking */}
           {(() => {
