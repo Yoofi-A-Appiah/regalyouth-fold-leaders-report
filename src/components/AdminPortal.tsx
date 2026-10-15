@@ -32,6 +32,8 @@ import {
   AlertTriangle,
   ChevronDown,
   Crown,
+  UserPlus,
+  UserMinus,
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -54,6 +56,8 @@ interface AdminPortalProps {
   onDeleteEvent: (eventId: string) => Promise<void>;
   onSetExecutive: (payload: { leaderId: string; isExecutive: boolean }) => Promise<void>;
   onSetFoldCoordinator: (payload: { leaderId: string; isFoldCoordinator: boolean }) => Promise<void>;
+  onPromoteToLeader: (payload: { memberName: string; fromLeaderId: string; newLeaderId: string }) => Promise<void>;
+  onDemoteLeader: (payload: { leaderId: string }) => Promise<void>;
   onAddResource: (payload: { title: string; url: string }) => Promise<void>;
   onDeleteResource: (id: string) => Promise<void>;
   onRefreshData: () => Promise<void>;
@@ -79,6 +83,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onDeleteEvent,
   onSetExecutive,
   onSetFoldCoordinator,
+  onPromoteToLeader,
+  onDemoteLeader,
   onAddResource,
   onDeleteResource,
   onRefreshData,
@@ -120,6 +126,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [subLeaderFilter, setSubLeaderFilter] = useState<string>('all');
   const [subSearch, setSubSearch] = useState('');
   const [expandedFolds, setExpandedFolds] = useState<Set<string>>(new Set());
+
+  // Promote-to-leader form state (Members tab)
+  const [promoteTarget, setPromoteTarget] = useState<{ memberName: string; fromLeaderId: string } | null>(null);
+  const [promoteNewId, setPromoteNewId] = useState('');
 
   // Youth Executives Tab (Super Admin only)
   const [newResourceTitle, setNewResourceTitle] = useState('');
@@ -651,7 +661,66 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           </div>
 
-          {periodsToShow.map(period => (
+          {/* Overall ranking card — shown only when viewing all periods */}
+          {selectedPerfPeriod === 'ALL' && periodsToShow.length > 0 && (() => {
+            const overallRows = [...leaders]
+              .map(l => ({ leader: l, total: submissions.filter(s => s.leaderId === l.id).length }))
+              .sort((a, b) => b.total - a.total || a.leader.name.localeCompare(b.leader.name));
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="badge badge-gold">Overall Ranking</span>
+                  <div className="flex-1 h-px bg-[var(--border)]" />
+                  <span className="text-[11px] text-[var(--muted)]">all periods combined</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {overallRows.map(({ leader, total }, idx) => (
+                    <div
+                      key={leader.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl border ${
+                        idx === 0
+                          ? 'border-[var(--gold)] bg-[var(--gold-pale)]'
+                          : total === 0
+                          ? 'border-red-200 bg-red-50'
+                          : 'border-[var(--border-light)] bg-white'
+                      }`}
+                    >
+                      <span className={`text-sm font-bold tnum w-7 text-center ${
+                        idx === 0 ? 'text-[var(--gold)]' :
+                        idx === 1 ? 'text-stone-400' :
+                        idx === 2 ? 'text-amber-700' :
+                        'text-[var(--muted)]'
+                      }`}>#{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-xs text-[var(--deep)] truncate">{leader.name}</div>
+                        <div className="font-mono text-[10px] text-[var(--muted)]">{leader.id}</div>
+                      </div>
+                      <span className={`text-sm font-bold tnum ${total === 0 ? 'text-red-500' : 'text-[var(--deep)]'}`}>
+                        {total}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {periodsToShow.map(period => {
+            const rankedRows = [...leaders]
+              .map(leader => {
+                const foldSize = leader.members.length;
+                const relevantSubs = submissions.filter(s => s.leaderId === leader.id && s.period === period);
+                const fuCount = relevantSubs.filter(s => s.type === 'followup').length;
+                const visCount = relevantSubs.filter(s => s.type === 'visitation').length;
+                const total = fuCount + visCount;
+                const reportedNames = new Set(relevantSubs.map(s => s.memberName.trim().toLowerCase()));
+                const uniqueCount = leader.members.filter(m => reportedNames.has(m.name.trim().toLowerCase())).length;
+                const rate = foldSize > 0 ? Math.round((uniqueCount / foldSize) * 100) : null;
+                return { leader, foldSize, fuCount, visCount, total, uniqueCount, rate };
+              })
+              .sort((a, b) => b.total - a.total || a.leader.name.localeCompare(b.leader.name));
+
+            return (
             <div key={period} className="space-y-3">
               {selectedPerfPeriod === 'ALL' && (
                 <div className="flex items-center gap-2 pt-1">
@@ -664,6 +733,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
                     <tr className="border-b border-[var(--border)] bg-[#FAF5EB] text-[var(--deep)]">
+                      <th className="p-3 font-semibold w-8">#</th>
                       <th className="p-3 font-semibold">Leader</th>
                       <th className="p-3 font-semibold">Fold Size</th>
                       <th className="p-3 font-semibold">Follow-Ups</th>
@@ -673,58 +743,47 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-light)]">
-                    {leaders.map(leader => {
-                      const foldSize = leader.members.length;
-                      const relevantSubs = submissions.filter(
-                        s => s.leaderId === leader.id && s.period === period
-                      );
-
-                      const fuCount = relevantSubs.filter(s => s.type === 'followup').length;
-                      const visCount = relevantSubs.filter(s => s.type === 'visitation').length;
-                      const total = fuCount + visCount;
-
-                      const reportedMemberNames = new Set(
-                        relevantSubs.map(s => s.memberName.trim().toLowerCase())
-                      );
-                      const uniqueCount = leader.members.filter(m =>
-                        reportedMemberNames.has(m.name.trim().toLowerCase())
-                      ).length;
-
-                      const rate = foldSize > 0 ? Math.round((uniqueCount / foldSize) * 100) : null;
-
-                      return (
-                        <tr key={leader.id} className="hover:bg-[var(--gold-pale)]/40 transition-colors">
-                          <td className="p-3">
-                            <div className="font-semibold text-[var(--deep)]">{leader.name}</div>
-                            <div className="font-mono text-[11px] text-[var(--muted)]">{leader.id}</div>
-                          </td>
-                          <td className="p-3 font-medium tnum">{foldSize}</td>
-                          <td className="p-3 font-medium text-emerald-800 tnum">{fuCount}</td>
-                          <td className="p-3 font-medium text-amber-800 tnum">{visCount}</td>
-                          <td className="p-3 font-bold tnum">{total}</td>
-                          <td className="p-3">
-                            {rate === null ? (
-                              <span className="text-[var(--muted)]">No members assigned</span>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <div className="w-20 h-2 bg-stone-200 rounded-full overflow-hidden flex-shrink-0">
-                                  <div
-                                    className="h-full bg-gradient-to-r from-[var(--gold)] to-[var(--success)] rounded-full"
-                                    style={{ width: `${rate}%` }}
-                                  />
-                                </div>
-                                <span className="font-semibold tnum">{uniqueCount}/{foldSize} ({rate}%)</span>
+                    {rankedRows.map(({ leader, foldSize, fuCount, visCount, total, uniqueCount, rate }, idx) => (
+                      <tr
+                        key={leader.id}
+                        className={`hover:bg-[var(--gold-pale)]/40 transition-colors ${total === 0 ? 'bg-red-50/60' : ''}`}
+                      >
+                        <td className="p-3 font-bold tnum text-center text-[var(--muted)]">
+                          {total === 0
+                            ? <span title="No submissions this period"><AlertTriangle className="w-3.5 h-3.5 text-red-400 mx-auto" /></span>
+                            : `#${idx + 1}`}
+                        </td>
+                        <td className="p-3">
+                          <div className="font-semibold text-[var(--deep)]">{leader.name}</div>
+                          <div className="font-mono text-[11px] text-[var(--muted)]">{leader.id}</div>
+                        </td>
+                        <td className="p-3 font-medium tnum">{foldSize}</td>
+                        <td className="p-3 font-medium text-emerald-800 tnum">{fuCount}</td>
+                        <td className="p-3 font-medium text-amber-800 tnum">{visCount}</td>
+                        <td className={`p-3 font-bold tnum ${total === 0 ? 'text-red-500' : ''}`}>{total}</td>
+                        <td className="p-3">
+                          {rate === null ? (
+                            <span className="text-[var(--muted)]">No members assigned</span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 h-2 bg-stone-200 rounded-full overflow-hidden flex-shrink-0">
+                                <div
+                                  className="h-full bg-gradient-to-r from-[var(--gold)] to-[var(--success)] rounded-full"
+                                  style={{ width: `${rate}%` }}
+                                />
                               </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                              <span className="font-semibold tnum">{uniqueCount}/{foldSize} ({rate}%)</span>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
-          ))}
+            );
+          })}
 
           {periodsToShow.length === 0 && (
             <p className="text-center text-xs text-[var(--muted)] py-12">
@@ -994,6 +1053,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     >
                       Executive
                     </button>
+                    <button
+                      onClick={() => {
+                        if (!confirm(`Demote ${l.name} (${l.id}) back to a regular member?\n\nTheir entire fold will be moved to Unassigned.`)) return;
+                        onDemoteLeader({ leaderId: l.id });
+                      }}
+                      disabled={!!l.isSuperAdmin}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Demote to Member"
+                    >
+                      <UserMinus className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1173,6 +1243,43 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             </div>
 
+            {/* Promote-to-leader inline form */}
+            {promoteTarget && (
+              <div className="border border-[var(--gold)] bg-[var(--gold-pale)] rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-[var(--deep)]" />
+                  <span className="text-xs font-bold text-[var(--deep)]">
+                    Promote <span className="text-[var(--gold)]">{promoteTarget.memberName}</span> to Fold Leader
+                  </span>
+                </div>
+                <form
+                  className="flex flex-col sm:flex-row gap-2"
+                  onSubmit={async e => {
+                    e.preventDefault();
+                    if (!promoteNewId.trim()) return;
+                    await onPromoteToLeader({ ...promoteTarget, newLeaderId: promoteNewId.trim().toUpperCase() });
+                    setPromoteTarget(null);
+                    setPromoteNewId('');
+                  }}
+                >
+                  <input
+                    type="text"
+                    placeholder="New Leader ID (e.g. FL-012)"
+                    value={promoteNewId}
+                    onChange={e => setPromoteNewId(e.target.value.toUpperCase())}
+                    className="regal-input text-xs flex-1"
+                    required
+                    autoFocus
+                  />
+                  <button type="submit" className="btn-gold px-4 py-2 text-xs font-semibold">Confirm Promotion</button>
+                  <button type="button" onClick={() => setPromoteTarget(null)} className="btn-secondary px-4 py-2 text-xs font-semibold">Cancel</button>
+                </form>
+                <p className="text-[11px] text-[var(--muted)]">
+                  The member will be removed from their current fold and created as a new fold leader with the given ID.
+                </p>
+              </div>
+            )}
+
             <div className="overflow-x-auto max-h-[500px]">
               <table className="w-full text-xs text-left border-collapse">
                 <thead className="sticky top-0 bg-[#FAF5EB] border-b border-[var(--border)]">
@@ -1225,13 +1332,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         </td>
                       )}
                       <td className="p-3 text-right">
-                        <button
-                          onClick={() => onRemoveMember({ memberName: item.member.name, leaderId: item.leaderId })}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Remove Member"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          {isSuperAdmin && (
+                            <button
+                              onClick={() => { setPromoteTarget({ memberName: item.member.name, fromLeaderId: item.leaderId }); setPromoteNewId(''); }}
+                              className="p-1.5 text-[var(--deep)] hover:bg-[var(--gold-pale)] rounded-lg transition-colors"
+                              title="Promote to Fold Leader"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onRemoveMember({ memberName: item.member.name, leaderId: item.leaderId })}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Remove Member"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

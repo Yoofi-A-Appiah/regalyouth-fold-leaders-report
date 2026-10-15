@@ -492,6 +492,40 @@ export default function Home() {
     }
   };
 
+  const handlePromoteToLeader = async (payload: { memberName: string; fromLeaderId: string; newLeaderId: string }) => {
+    try {
+      const res = await fetch('/api/roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'promoteToLeader', ...payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to promote member');
+      showToast(`${payload.memberName} promoted to Fold Leader (${payload.newLeaderId})`, 'success');
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to promote member', 'error');
+      throw err;
+    }
+  };
+
+  const handleDemoteLeader = async (payload: { leaderId: string; toLeaderId?: string }) => {
+    try {
+      const res = await fetch('/api/roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'demoteLeader', ...payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to demote leader');
+      showToast(`Leader (${payload.leaderId}) demoted — their fold moved to Unassigned`, 'info');
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to demote leader', 'error');
+      throw err;
+    }
+  };
+
   const handleSetExecutive = async (payload: { leaderId: string; isExecutive: boolean }) => {
     try {
       const res = await fetch('/api/roster', {
@@ -623,6 +657,8 @@ export default function Home() {
             onDeleteEvent={handleDeleteEvent}
             onSetExecutive={handleSetExecutive}
             onSetFoldCoordinator={handleSetFoldCoordinator}
+            onPromoteToLeader={handlePromoteToLeader}
+            onDemoteLeader={handleDemoteLeader}
             onAddResource={handleAddResource}
             onDeleteResource={handleDeleteResource}
             onRefreshData={loadAllData}

@@ -371,6 +371,132 @@ export async function removeMember(data: { memberName: string; leaderId?: string
   return { ok: true };
 }
 
+export async function promoteToLeader(data: {
+  memberName: string;
+  fromLeaderId: string;
+  newLeaderId: string;
+}): Promise<{ ok: boolean }> {
+  const db = await getDb();
+  const memberName = data.memberName.trim();
+  const fromLeaderId = data.fromLeaderId.trim().toUpperCase();
+  const newLeaderId = data.newLeaderId.trim().toUpperCase();
+  if (!newLeaderId) throw new Error('New leader ID is required');
+
+  if (!db) {
+    let actualName = memberName;
+    if (fromLeaderId) {
+      const fromLead = memStore.leaders.find(l => l.id === fromLeaderId);
+      if (!fromLead) throw new Error('Source fold not found');
+      const idx = fromLead.members.findIndex(m => m.name.toLowerCase() === memberName.toLowerCase());
+      if (idx === -1) throw new Error('Member not found in this fold');
+      actualName = fromLead.members.splice(idx, 1)[0].name;
+    } else {
+      const idx = memStore.unassigned.findIndex(m => m.name.toLowerCase() === memberName.toLowerCase());
+      if (idx === -1) throw new Error('Member not found');
+      actualName = memStore.unassigned.splice(idx, 1)[0].name;
+    }
+    if (memStore.leaders.some(l => l.id.toLowerCase() === newLeaderId.toLowerCase()))
+      throw new Error('A leader with this ID already exists');
+    memStore.leaders.push({ id: newLeaderId, name: actualName, members: [] });
+    return { ok: true };
+  }
+
+  await initDb();
+  let actualName = memberName;
+  if (fromLeaderId) {
+    const fromLead = await db.collection('leaders').findOne({ id: fromLeaderId });
+    if (!fromLead) throw new Error('Source fold not found');
+    const member = (fromLead.members || []).find((m: any) => m.name.toLowerCase() === memberName.toLowerCase());
+    if (!member) throw new Error('Member not found in this fold');
+    actualName = member.name;
+    await db.collection('leaders').updateOne(
+      { id: fromLeaderId },
+      { $pull: { members: { name: { $regex: new RegExp(`^${memberName}$`, 'i') } } } } as any
+    );
+  } else {
+    const memberDoc = await db.collection('unassigned').findOne({ name: { $regex: new RegExp(`^${memberName}$`, 'i') } });
+    if (!memberDoc) throw new Error('Member not found');
+    actualName = memberDoc.name;
+    await db.collection('unassigned').deleteOne({ name: { $regex: new RegExp(`^${memberName}$`, 'i') } });
+  }
+  const existing = await db.collection('leaders').findOne({ id: newLeaderId });
+  if (existing) throw new Error('A leader with this ID already exists');
+  await db.collection('leaders').insertOne({
+    id: newLeaderId,
+    name: actualName,
+    addedAt: new Date().toISOString(),
+    members: [],
+  });
+  return { ok: true };
+}
+
+export async function demoteLeaderToMember(data: {
+  leaderId: string;
+  toLeaderId?: string;
+}): Promise<{ ok: boolean }> {
+  const db = await getDb();
+  const leaderId = data.leaderId.trim().toUpperCase();
+  const toLeaderId = data.toLeaderId?.trim().toUpperCase() || '';
+
+  if (!db) {
+    const leaderIdx = memStore.leaders.findIndex(l => l.id === leaderId);
+    if (leaderIdx === -1) throw new Error('Leader not found');
+    const [leader] = memStore.leaders.splice(leaderIdx, 1);
+    for (const m of leader.members) {
+      memStore.unassigned.push({ ...m, leaderId: '' });
+    }
+    const newMember: Member = { name: leader.name, phone: '', leaderId: '' };
+    if (toLeaderId) {
+      const toLead = memStore.leaders.find(l => l.id === toLeaderId);
+      if (toLead) toLead.members.push({ ...newMember, leaderId: toLeaderId });
+      else memStore.unassigned.push(newMember);
+    } else {
+      memStore.unassigned.push(newMember);
+    }
+    return { ok: true };
+  }
+
+  await initDb();
+  const leaderDoc = await db.collection('leaders').findOne({ id: leaderId });
+  if (!leaderDoc) throw new Error('Leader not found');
+  const foldMembers: any[] = leaderDoc.members || [];
+
+  await db.collection('leaders').deleteOne({ id: leaderId });
+
+  const ops: Promise<any>[] = [];
+  if (foldMembers.length > 0) {
+    ops.push(
+      db.collection('unassigned').insertMany(
+        foldMembers.map((m: any) => ({
+          name: m.name,
+          phone: m.phone || '',
+          leaderId: '',
+          addedAt: m.addedAt || new Date().toISOString(),
+        }))
+      )
+    );
+  }
+
+  const demotedEntry = { name: leaderDoc.name, phone: leaderDoc.phone || '', addedAt: new Date().toISOString() };
+  if (toLeaderId) {
+    const toLead = await db.collection('leaders').findOne({ id: toLeaderId });
+    if (toLead) {
+      ops.push(
+        db.collection('leaders').updateOne(
+          { id: toLeaderId },
+          { $push: { members: { ...demotedEntry, leaderId: toLeaderId } } } as any
+        )
+      );
+    } else {
+      ops.push(db.collection('unassigned').insertOne({ ...demotedEntry, leaderId: '' }));
+    }
+  } else {
+    ops.push(db.collection('unassigned').insertOne({ ...demotedEntry, leaderId: '' }));
+  }
+  await Promise.all(ops);
+  return { ok: true };
+}
+
 // ──────────────── SUBMISSIONS ────────────────
 export async function getSubmissions(period?: string): Promise<{ submissions: Submission[] }> {
   const db = await getDb();
