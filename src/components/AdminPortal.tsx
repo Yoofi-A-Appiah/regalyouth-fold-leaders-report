@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   ChevronDown,
   Crown,
+  UserMinus,
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -54,6 +55,7 @@ interface AdminPortalProps {
   onDeleteEvent: (eventId: string) => Promise<void>;
   onSetExecutive: (payload: { leaderId: string; isExecutive: boolean }) => Promise<void>;
   onSetFoldCoordinator: (payload: { leaderId: string; isFoldCoordinator: boolean }) => Promise<void>;
+  onDemoteLeader: (payload: { leaderId: string; transferMembersTo?: string }) => Promise<void>;
   onAddResource: (payload: { title: string; url: string }) => Promise<void>;
   onDeleteResource: (id: string) => Promise<void>;
   onRefreshData: () => Promise<void>;
@@ -79,6 +81,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onDeleteEvent,
   onSetExecutive,
   onSetFoldCoordinator,
+  onDemoteLeader,
   onAddResource,
   onDeleteResource,
   onRefreshData,
@@ -300,7 +303,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all ${
                 isActive
                   ? 'bg-[var(--deep)] text-[var(--gold-light)] shadow-sm'
@@ -436,6 +439,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         Fold size: <strong className="text-[var(--deep)]">{l.members.length}</strong> youth
                       </div>
                     </div>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => {
+                          if (!confirm(
+                            `Demote ${l.name} to member?\n\nTheir ${l.members.length} fold member${l.members.length !== 1 ? 's' : ''} will move to Unassigned. This cannot be undone.`
+                          )) return;
+                          onDemoteLeader({ leaderId: l.id });
+                        }}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                        title="Demote to Member"
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -823,270 +840,198 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           .slice(0, 12);
 
         return (
+
         <div className="space-y-6">
-          <div className="regal-card p-6 space-y-1">
-            <h3 className="font-serif text-lg font-bold text-[var(--deep)] flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-[var(--gold)]" />
-              Follow-Up Impact on Attendance
-            </h3>
-            <p className="text-xs text-[var(--muted)]">
-              Does regular follow-up actually correlate with a youth showing up? Measured across
-              {' '}{withAttendance.length} member{withAttendance.length === 1 ? '' : 's'} who have at least one attendance record
-              {memberStats.length - withAttendance.length > 0 && (
-                <> ({memberStats.length - withAttendance.length} excluded -- never marked at an event)</>
-              )}.
-            </p>
-          </div>
+          {/* All-Time Submission Ranking */}
+          {(() => {
+            const ranked = [...leaders]
+              .map(leader => ({
+                leader,
+                total: submissions.filter(s => s.leaderId === leader.id).length,
+              }))
+              .sort((a, b) => b.total - a.total);
+            const maxTotal = ranked.length > 0 ? Math.max(ranked[0].total, 1) : 1;
+            const medals = ['🥇', '🥈', '🥉'];
 
-          {withAttendance.length < 3 ? (
-            <div className="regal-card p-8 text-center">
-              <p className="text-sm text-[var(--muted)]">
-                Not enough attendance history yet to compare follow-up regularity against attendance.
-                Mark attendance at a few more events first.
-              </p>
-            </div>
-          ) : (
-          <>
-          {/* Headline correlation */}
-          <div className="regal-card p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="badge badge-gold">Correlation</span>
-            </div>
-            {correlation === null ? (
-              <p className="text-sm text-[var(--muted)]">Not enough variation in the data yet to compute a correlation.</p>
-            ) : (
-              <p className="text-sm text-[var(--text2)]">
-                Members contacted in more reporting periods tend to attend{' '}
-                <strong className="text-[var(--deep)]">{correlation >= 0 ? 'more' : 'less'} often</strong> --
-                a <strong className="text-[var(--deep)]">{corrStrength(correlation)}</strong> correlation
-                (r = <span className="font-mono">{correlation.toFixed(2)}</span>) between periods-contacted and attendance rate.
-              </p>
-            )}
-          </div>
+            return (
+              <div className="regal-card p-6 space-y-4">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-[var(--deep)]">
+                    All-Time Report Submission Ranking
+                  </h3>
+                  <p className="text-xs text-[var(--muted)]">
+                    Total reports submitted by each fold leader across all periods, ranked 1st to last
+                  </p>
+                </div>
 
-          {/* Bucketed comparison */}
-          <div className="regal-card p-6 space-y-4">
-            <div>
-              <h4 className="font-serif text-base font-bold text-[var(--deep)]">Attendance rate by follow-up regularity</h4>
-              <p className="text-xs text-[var(--muted)]">Attendance rate pooled across every member in each group</p>
-            </div>
-            <div className="space-y-3">
-              {bucketStats.map(b => (
-                <div key={b.label}>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="font-semibold text-[var(--deep)]">{b.label}</span>
-                    <span className="text-[var(--muted)]">
-                      {b.memberCount} member{b.memberCount === 1 ? '' : 's'}
-                      {b.rate !== null && <span className="font-bold text-[var(--deep)] ml-2">{b.rate}%</span>}
-                    </span>
-                  </div>
-                  <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden">
-                    {b.rate !== null && (
+                <div className="space-y-2">
+                  {ranked.map(({ leader, total }, idx) => {
+                    const rankLabel = idx < 3 ? medals[idx] : `#${idx + 1}`;
+                    const pct = Math.round((total / maxTotal) * 100);
+                    return (
                       <div
-                        className="h-full bg-gradient-to-r from-[var(--gold)] to-[var(--success)] rounded-full transition-all duration-500"
-                        style={{ width: `${b.rate}%` }}
-                      />
-                    )}
-                  </div>
+                        key={leader.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                          idx === 0
+                            ? 'border-[var(--gold)] bg-[var(--gold-pale)]/60'
+                            : 'border-[var(--border-light)] bg-[#FFFDF9]'
+                        }`}
+                      >
+                        <div className="w-9 text-center text-base font-bold shrink-0">
+                          {rankLabel}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div>
+                              <span className="font-semibold text-xs text-[var(--deep)]">
+                                {leader.name}
+                              </span>
+                              <span className="font-mono text-[10px] text-[var(--muted)] ml-1.5">
+                                {leader.id}
+                              </span>
+                            </div>
+                            <span className="font-bold text-sm text-[var(--deep)] ml-2 shrink-0">
+                              {total} <span className="text-[11px] font-medium text-[var(--muted)]">report{total !== 1 ? 's' : ''}</span>
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[var(--gold)] to-[var(--success)]"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {leaders.length === 0 && (
+                    <p className="text-center text-xs text-[var(--muted)] py-6">
+                      No leaders registered yet.
+                    </p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* At-risk list */}
-          <div className="regal-card p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-700" />
-              <h4 className="font-serif text-base font-bold text-[var(--deep)]">Never followed up, and falling away</h4>
-            </div>
-            <p className="text-xs text-[var(--muted)] -mt-2">
-              No follow-up on record, and either never attended or attending less than half the time -- prioritize these first
-            </p>
-            {atRisk.length === 0 ? (
-              <p className="text-sm text-[var(--success)] font-medium">No one currently matches this -- great shepherding.</p>
-            ) : (
-              <div className="divide-y divide-[var(--border-light)]">
-                {atRisk.map(m => (
-                  <div key={`${m.leaderId}-${m.name}`} className="py-3 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-sm text-[var(--deep)]">{m.name}</div>
-                      <div className="text-[11px] text-[var(--muted)] font-mono">{m.leaderId} · {m.leaderName}</div>
-                    </div>
-                    <span className="badge badge-pending">
-                      {m.totalMarked === 0 ? 'Never marked' : `${Math.round((m.present / m.totalMarked) * 100)}% attendance`}
-                    </span>
-                  </div>
-                ))}
               </div>
-            )}
-          </div>
-          </>
-          )}
-        </div>
-        );
-      })()}
+            );
+          })()}
 
-      {/* ── TAB (SUPER ADMIN ONLY): YOUTH EXECUTIVES ── */}
-      {activeTab === 'executives' && isSuperAdmin && (() => {
-        const filteredLeaders = leaders.filter(
-          l =>
-            l.name.toLowerCase().includes(execLeaderSearch.toLowerCase()) ||
-            l.id.toLowerCase().includes(execLeaderSearch.toLowerCase())
-        );
+          {/* Per-Period Performance Tables */}
+          {(() => {
+            const periodsToShow = selectedPerfPeriod === 'ALL'
+              ? [...submissionPeriods].sort().reverse()
+              : [selectedPerfPeriod];
 
-        return (
-        <div className="space-y-6">
-          <div className="regal-card p-6 space-y-1">
-            <h3 className="font-serif text-lg font-bold text-[var(--deep)] flex items-center gap-2">
-              <Crown className="w-5 h-5 text-[var(--gold)]" />
-              Youth Executives
-            </h3>
-            <p className="text-xs text-[var(--muted)]">
-              Grant Fold Coordinator (full admin access) or Executive (view-only resource tab) to fold leaders,
-              and manage the Google Docs/Sheets shown on their Executive tab.
-            </p>
-          </div>
-
-          {/* Roles */}
-          <div className="regal-card p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h4 className="font-serif text-base font-bold text-[var(--deep)]">Fold Leader Roles</h4>
-              <div className="relative w-full sm:w-64">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none" />
-                <input
-                  type="search"
-                  value={execLeaderSearch}
-                  onChange={e => setExecLeaderSearch(e.target.value)}
-                  placeholder="Search leader name or ID"
-                  className="regal-input text-xs py-1.5 pl-8"
-                />
-              </div>
-            </div>
-
-            <div className="divide-y divide-[var(--border-light)] max-h-[28rem] overflow-y-auto">
-              {filteredLeaders.map(l => (
-                <div key={l.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
+            return (
+              <div className="regal-card p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-[var(--bg2)] text-[var(--deep)]">
-                        {l.id}
-                      </span>
-                      <span className="font-semibold text-xs text-[var(--deep)]">{l.name}</span>
-                      {l.isSuperAdmin && <span className="badge badge-gold">Super Admin</span>}
-                    </div>
+                    <h3 className="font-serif text-lg font-bold text-[var(--deep)]">
+                      Fold Leader Submission Performance
+                    </h3>
+                    <p className="text-xs text-[var(--muted)]">
+                      Follow-up coverage per fold, measured against that period&apos;s fold size
+                    </p>
                   </div>
+
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onSetFoldCoordinator({ leaderId: l.id, isFoldCoordinator: !l.isFoldCoordinator })}
-                      disabled={!!l.isSuperAdmin}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                        l.isFoldCoordinator || l.isSuperAdmin ? 'bg-[var(--deep)] text-white' : 'btn-secondary'
-                      }`}
+                    <label className="text-xs font-semibold text-[var(--deep)]">Period:</label>
+                    <select
+                      value={selectedPerfPeriod}
+                      onChange={e => setSelectedPerfPeriod(e.target.value)}
+                      className="regal-input text-xs py-1.5 w-36"
                     >
-                      Fold Coordinator
-                    </button>
-                    <button
-                      onClick={() => onSetExecutive({ leaderId: l.id, isExecutive: !l.isExecutive })}
-                      disabled={!!l.isSuperAdmin}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                        l.isExecutive || l.isSuperAdmin ? 'bg-amber-800 text-white' : 'btn-secondary'
-                      }`}
-                    >
-                      Executive
-                    </button>
+                      <option value="ALL">All Periods</option>
+                      {submissionPeriods.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-              ))}
 
-              {filteredLeaders.length === 0 && (
-                <p className="text-xs text-center text-[var(--muted)] py-8">
-                  No leaders found matching "{execLeaderSearch}"
-                </p>
-              )}
-            </div>
-          </div>
+                {periodsToShow.map(period => (
+                  <div key={period} className="space-y-3">
+                    {selectedPerfPeriod === 'ALL' && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="badge badge-gold">Period {period}</span>
+                        <div className="flex-1 h-px bg-[var(--border)]" />
+                      </div>
+                    )}
 
-          {/* Resource catalogue */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="regal-card p-5 lg:col-span-1 space-y-4">
-              <h4 className="font-serif text-base font-bold text-[var(--deep)] flex items-center gap-2">
-                <Plus className="w-4 h-4 text-[var(--gold)]" />
-                Add Resource Card
-              </h4>
-              <form onSubmit={handleAddResource} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--deep)] mb-1">Title</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Q3 Ministry Plan"
-                    value={newResourceTitle}
-                    onChange={e => setNewResourceTitle(e.target.value)}
-                    className="regal-input text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--deep)] mb-1">Google Doc/Sheet link</label>
-                  <input
-                    type="url"
-                    placeholder="https://docs.google.com/..."
-                    value={newResourceUrl}
-                    onChange={e => setNewResourceUrl(e.target.value)}
-                    className="regal-input text-xs"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="btn-gold w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Resource</span>
-                </button>
-              </form>
-            </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-[var(--border)] bg-[#FAF5EB] text-[var(--deep)]">
+                            <th className="p-3 font-semibold">Leader</th>
+                            <th className="p-3 font-semibold">Fold Size</th>
+                            <th className="p-3 font-semibold">Follow-Ups</th>
+                            <th className="p-3 font-semibold">Visitations</th>
+                            <th className="p-3 font-semibold">Total Submissions</th>
+                            <th className="p-3 font-semibold">Members Reported</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-light)]">
+                          {leaders.map(leader => {
+                            const foldSize = leader.members.length;
+                            const relevantSubs = submissions.filter(
+                              s => s.leaderId === leader.id && s.period === period
+                            );
 
-            <div className="regal-card p-5 lg:col-span-2 space-y-4">
-              <h4 className="font-serif text-base font-bold text-[var(--deep)]">
-                Resource Catalogue ({resources.length})
-              </h4>
-              <div className="divide-y divide-[var(--border-light)]">
-                {resources.map(r => (
-                  <div key={r.id} className="py-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-semibold text-xs text-[var(--deep)] truncate">{r.title}</div>
-                      <div className="text-[11px] text-[var(--muted)] mt-0.5 capitalize">{r.kind}</div>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <a
-                        href={r.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 text-[var(--muted)] hover:text-[var(--deep)] hover:bg-[var(--gold-pale)] rounded-lg transition-colors"
-                        title="Open"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                      <button
-                        onClick={() => onDeleteResource(r.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remove"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                            const fuCount = relevantSubs.filter(s => s.type === 'followup').length;
+                            const visCount = relevantSubs.filter(s => s.type === 'visitation').length;
+                            const total = fuCount + visCount;
+
+                            const reportedMemberNames = new Set(
+                              relevantSubs.map(s => s.memberName.trim().toLowerCase())
+                            );
+                            const uniqueCount = leader.members.filter(m =>
+                              reportedMemberNames.has(m.name.trim().toLowerCase())
+                            ).length;
+
+                            const rate = foldSize > 0 ? Math.round((uniqueCount / foldSize) * 100) : null;
+
+                            return (
+                              <tr key={leader.id} className="hover:bg-[var(--gold-pale)]/40 transition-colors">
+                                <td className="p-3">
+                                  <div className="font-semibold text-[var(--deep)]">{leader.name}</div>
+                                  <div className="font-mono text-[10px] text-[var(--muted)]">{leader.id}</div>
+                                </td>
+                                <td className="p-3 font-medium">{foldSize}</td>
+                                <td className="p-3 font-medium text-emerald-800">{fuCount}</td>
+                                <td className="p-3 font-medium text-amber-800">{visCount}</td>
+                                <td className="p-3 font-bold">{total}</td>
+                                <td className="p-3">
+                                  {rate !== null ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-20 h-2 bg-stone-200 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-gradient-to-r from-[var(--gold)] to-[var(--success)] rounded-full"
+                                          style={{ width: `${Math.min(100, rate)}%` }}
+                                        />
+                                      </div>
+                                      <span className="font-semibold">{rate}%</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[var(--muted)]">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 ))}
 
-                {resources.length === 0 && (
+                {periodsToShow.length === 0 && (
                   <p className="text-xs text-center text-[var(--muted)] py-8">
-                    No resources yet. Add a Google Doc or Sheet link above.
+                    No submissions recorded yet.
                   </p>
                 )}
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
-        );
-      })()}
+      )}
 
       {/* ── TAB 4: MEMBERS DIRECTORY ── */}
       {activeTab === 'members' && (
@@ -1270,7 +1215,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-purple-900 bg-white/80 p-3 rounded-lg border border-purple-100">
-                  "{req.reason}"
+                  &ldquo;{req.reason}&rdquo;
                 </p>
                 <div className="text-[11px] text-purple-800 flex items-center justify-between">
                   <span>Fold: <strong>{req.leaderName}</strong></span>
@@ -1316,7 +1261,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-amber-900 bg-white/80 p-3 rounded-lg border border-amber-100">
-                  "{item.reason}"
+                  &ldquo;{item.reason}&rdquo;
                 </p>
                 <div className="text-[11px] text-amber-800 flex items-center justify-between">
                   <span>Fold: <strong>{item.leaderName}</strong></span>
@@ -1530,7 +1475,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                   </p>
                                   {sub.response && (
                                     <p className="text-[var(--text2)] bg-[var(--gold-pale)]/50 p-2.5 rounded-lg mt-1">
-                                      "{sub.response}"
+                                      &ldquo;{sub.response}&rdquo;
                                     </p>
                                   )}
                                   {sub.prayerNeeds && (
@@ -1627,7 +1572,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             ) : (
               <div className="text-stone-400 text-sm">
-                Press "Pick Random Person" to select someone
+                Press &ldquo;Pick Random Person&rdquo; to select someone
               </div>
             )}
           </div>

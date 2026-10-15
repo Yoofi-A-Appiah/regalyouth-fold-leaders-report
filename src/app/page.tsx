@@ -475,6 +475,23 @@ export default function Home() {
     }
   };
 
+  const handleDemoteLeader = async (payload: { leaderId: string; transferMembersTo?: string }) => {
+    try {
+      const res = await fetch('/api/roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'demoteLeader', ...payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to demote leader');
+      showToast('Leader demoted to member', 'info');
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to demote leader', 'error');
+      throw err;
+    }
+  };
+
   const handleSetFoldCoordinator = async (payload: { leaderId: string; isFoldCoordinator: boolean }) => {
     try {
       const res = await fetch('/api/roster', {
@@ -623,6 +640,7 @@ export default function Home() {
             onDeleteEvent={handleDeleteEvent}
             onSetExecutive={handleSetExecutive}
             onSetFoldCoordinator={handleSetFoldCoordinator}
+            onDemoteLeader={handleDemoteLeader}
             onAddResource={handleAddResource}
             onDeleteResource={handleDeleteResource}
             onRefreshData={loadAllData}
